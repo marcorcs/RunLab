@@ -30,12 +30,11 @@ export const useStravaStore = create<StravaStore>((set) => ({
     set({ isLoading: true });
     try {
       const code = await StravaService.authorize();
-      const tokens = await StravaService.exchangeToken(code);
-      await StravaService.saveTokens(tokens);
+      const athlete = await StravaService.exchangeAndSave(code);
       set({
         isConnected: true,
-        athleteName: `${tokens.athlete.firstname} ${tokens.athlete.lastname}`,
-        athleteAvatar: tokens.athlete.profile,
+        athleteName: `${athlete.firstname} ${athlete.lastname}`,
+        athleteAvatar: athlete.profile,
       });
     } finally {
       set({ isLoading: false });

@@ -3,6 +3,7 @@ import { supabase } from "@/services/supabase";
 import { generateMockPlan, generateExtensionWorkouts, TrainingPlan, Workout } from "@/services/planGenerator";
 import { useProfileStore } from "@/stores/profileStore";
 import { useAuthStore } from "@/stores/authStore";
+import { scheduleWorkoutNotifications } from "@/services/notifications";
 
 interface PlanStore {
   plan: TrainingPlan | null;
@@ -128,6 +129,9 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
           workouts,
         },
       });
+
+      // Agenda notificações para os próximos 7 dias (silencioso se falhar)
+      scheduleWorkoutNotifications(workouts).catch(() => {});
     } finally {
       set({ isLoading: false });
     }

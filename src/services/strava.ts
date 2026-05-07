@@ -1,29 +1,12 @@
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { supabase } from "@/services/supabase";
-import { useAuthStore } from "@/stores/authStore";
 
 const STRAVA_CLIENT_ID = process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID!;
-const STRAVA_CLIENT_SECRET = process.env.EXPO_PUBLIC_STRAVA_CLIENT_SECRET!;
-//const REDIRECT_URI = Linking.createURL("strava-callback");
 const REDIRECT_URI = Linking.createURL("strava-callback");
-console.log("REDIRECT URI:", REDIRECT_URI);
 
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/mobile/authorize";
-const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_API_URL = "https://www.strava.com/api/v3";
-
-export interface StravaTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
-  athlete: {
-    id: number;
-    firstname: string;
-    lastname: string;
-    profile: string;
-  };
-}
 
 export interface StravaSplit {
   split: number;
@@ -78,89 +61,20 @@ export class StravaService {
     return code;
   }
 
-  // Troca o código por tokens de acesso
-  static async exchangeToken(code: string): Promise<StravaTokens> {
-    const response = await fetch(STRAVA_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: STRAVA_CLIENT_ID,
-        client_secret: STRAVA_CLIENT_SECRET,
-        code,
-        grant_type: "authorization_code",
-      }),
+  // Troca o código pelos tokens via Edge Function (secret fica no servidor)
+  static async exchangeAndSave(code: string): Promise<{ firstname: string; lastname: string; profile: string }> {
+    const { data, error } = await supabase.functions.invoke("strava-exchange", {
+      body: { code },
     });
-
-    if (!response.ok) {
-      throw new Error("Erro ao obter tokens do Strava");
-    }
-
-    return response.json();
+    if (error) throw new Error(error.message ?? "Erro ao ligar ao Strava");
+    return data.athlete;
   }
 
-  // Guarda os tokens no Supabase
-  static async saveTokens(tokens: StravaTokens): Promise<void> {
-    const user = useAuthStore.getState().user;
-    if (!user) throw new Error("Utilizador não autenticado");
-
-    const { error } = await supabase.from("strava_connections").upsert({
-      user_id: user.id,
-      strava_athlete_id: tokens.athlete.id,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: tokens.expires_at,
-      athlete_name: `${tokens.athlete.firstname} ${tokens.athlete.lastname}`,
-      athlete_avatar: tokens.athlete.profile,
-      connected_at: new Date().toISOString(),
-    });
-
-    if (error) throw error;
-  }
-
-  // Verifica se o token expirou e faz refresh se necessário
+  // Obtém um access token válido via Edge Function (faz refresh se necessário)
   static async getValidToken(): Promise<string> {
-    const user = useAuthStore.getState().user;
-    if (!user) throw new Error("Utilizador não autenticado");
-
-    const { data, error } = await supabase
-      .from("strava_connections")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (error || !data) throw new Error("Strava não ligado");
-
-    const now = Math.floor(Date.now() / 1000);
-    if (data.expires_at > now) {
-      return data.access_token;
-    }
-
-    // Token expirado — faz refresh
-    const response = await fetch(STRAVA_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: STRAVA_CLIENT_ID,
-        client_secret: STRAVA_CLIENT_SECRET,
-        refresh_token: data.refresh_token,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    if (!response.ok) throw new Error("Erro ao renovar token");
-
-    const newTokens = await response.json();
-
-    await supabase
-      .from("strava_connections")
-      .update({
-        access_token: newTokens.access_token,
-        refresh_token: newTokens.refresh_token,
-        expires_at: newTokens.expires_at,
-      })
-      .eq("user_id", user.id);
-
-    return newTokens.access_token;
+    const { data, error } = await supabase.functions.invoke("strava-token");
+    if (error) throw new Error(error.message ?? "Strava não ligado");
+    return data.access_token;
   }
 
   // Busca um lote de corridas por página (para paginação manual)
@@ -227,7 +141,7 @@ export class StravaService {
 
   // Verifica se o Strava está ligado
   static async isConnected(): Promise<boolean> {
-    const user = useAuthStore.getState().user;
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
     const { data } = await supabase
@@ -241,7 +155,7 @@ export class StravaService {
 
   // Desliga o Strava
   static async disconnect(): Promise<void> {
-    const user = useAuthStore.getState().user;
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     await supabase

@@ -132,6 +132,49 @@ export default function StatsTab() {
     };
   }, [activities, plan, isConnected]);
 
+  const raceEstimates = useMemo(() => {
+    if (!isConnected || !plan || activities.length === 0) return null;
+
+    const linkedIds = new Set(
+      plan.workouts.map((w) => (w as any).strava_activity_id).filter(Boolean)
+    );
+    const linked = activities.filter((a) => linkedIds.has(a.id));
+    if (linked.length < 2) return null;
+
+    // Velocidade média ponderada pelo tempo
+    const totalDist = linked.reduce((s, a) => s + a.distance, 0);
+    const totalTime = linked.reduce((s, a) => s + a.moving_time, 0);
+    if (totalDist === 0 || totalTime === 0) return null;
+
+    const avgSpeedMps = totalDist / totalTime;
+    const avgDistM = totalDist / linked.length;
+    const refTimeS = avgDistM / avgSpeedMps;
+
+    // Fórmula de Riegel: T2 = T1 × (D2/D1)^1.06
+    function predict(targetM: number): { time: string; pace: string } {
+      const timeS = refTimeS * Math.pow(targetM / avgDistM, 1.06);
+      const paceS = timeS / (targetM / 1000);
+      const h = Math.floor(timeS / 3600);
+      const m = Math.floor((timeS % 3600) / 60);
+      const s = Math.round(timeS % 60);
+      const timeStr = h > 0
+        ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+        : `${m}:${String(s).padStart(2, "0")}`;
+      const paceStr = `${Math.floor(paceS / 60)}:${String(Math.round(paceS % 60)).padStart(2, "0")}`;
+      return { time: timeStr, pace: paceStr };
+    }
+
+    return {
+      count: linked.length,
+      predictions: [
+        { label: "5K",      dist: 5000,  ...predict(5000)  },
+        { label: "10K",     dist: 10000, ...predict(10000) },
+        { label: "Meia",    dist: 21097, ...predict(21097) },
+        { label: "Maratona",dist: 42195, ...predict(42195) },
+      ],
+    };
+  }, [activities, plan, isConnected]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -295,6 +338,27 @@ export default function StatsTab() {
           </>
         )}
 
+        {/* Race estimates */}
+        {raceEstimates && (
+          <>
+            <Text style={styles.sectionTitle}>Estimativa de prova</Text>
+            <View style={styles.card}>
+              <Text style={styles.estimateNote}>
+                Baseado em {raceEstimates.count} corrida{raceEstimates.count !== 1 ? "s" : ""} registadas · Fórmula de Riegel
+              </Text>
+              <View style={styles.estimateGrid}>
+                {raceEstimates.predictions.map(({ label, time, pace }) => (
+                  <View key={label} style={styles.estimateCard}>
+                    <Text style={styles.estimateDist}>{label}</Text>
+                    <Text style={styles.estimateTime}>{time}</Text>
+                    <Text style={styles.estimatePace}>{pace}/km</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+
         <View style={{ height: spacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>
@@ -383,4 +447,21 @@ const styles = StyleSheet.create({
   stravaStat: { width: "50%", paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, alignItems: "center" },
   stravaVal: { fontSize: typography.sizes.xxl, fontWeight: "800" },
   stravaStatLabel: { fontSize: typography.sizes.xs, color: colors.muted, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
+
+  // Race estimates
+  estimateNote: { fontSize: typography.sizes.xs, color: colors.muted, fontWeight: "600", textAlign: "center", marginBottom: spacing.lg, letterSpacing: 0.3 },
+  estimateGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  estimateCard: {
+    width: "47.5%",
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  estimateDist: { fontSize: typography.sizes.xs, fontWeight: "800", color: colors.muted, textTransform: "uppercase", letterSpacing: 1 },
+  estimateTime: { fontSize: typography.sizes.xxl, fontWeight: "900", color: colors.accent, letterSpacing: -0.5 },
+  estimatePace: { fontSize: typography.sizes.xs, color: colors.textSecondary, fontWeight: "600" },
 });

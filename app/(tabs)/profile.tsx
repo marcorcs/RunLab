@@ -9,7 +9,10 @@ import {
   Alert,
   Image,
   Modal,
+  Switch,
 } from "react-native";
+import * as Notifications from "expo-notifications";
+import { scheduleWorkoutNotifications, cancelAllNotifications } from "@/services/notifications";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useAuthStore } from "@/stores/authStore";
@@ -50,10 +53,21 @@ export default function ProfileTab() {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [isExtending, setIsExtending] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     checkConnection();
+    Notifications.getAllScheduledNotificationsAsync().then((s) => setNotificationsEnabled(s.length > 0));
   }, []);
+
+  async function handleNotificationToggle(value: boolean) {
+    setNotificationsEnabled(value);
+    if (value && plan) {
+      await scheduleWorkoutNotifications(plan.workouts);
+    } else {
+      await cancelAllNotifications();
+    }
+  }
 
   async function handleStravaConnect() {
     try {
@@ -250,6 +264,23 @@ export default function ProfileTab() {
           )}
         </View>
 
+        {/* Notifications */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferências</Text>
+          <View style={styles.prefRow}>
+            <View style={styles.prefInfo}>
+              <Text style={styles.prefLabel}>Lembrete diário de treino</Text>
+              <Text style={styles.prefSub}>Notificação às 8h com o treino do dia</Text>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleNotificationToggle}
+              trackColor={{ false: colors.border, true: colors.accent + "66" }}
+              thumbColor={notificationsEnabled ? colors.accent : colors.muted}
+            />
+          </View>
+        </View>
+
         <View style={styles.section}>
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
             <Text style={styles.signOutText}>Sair da conta</Text>
@@ -420,4 +451,8 @@ const styles = StyleSheet.create({
   cancelWarningText: { fontSize: typography.sizes.sm, color: colors.warning, lineHeight: 20 },
   cancelConfirmBtn: { backgroundColor: colors.error, borderRadius: radii.lg, paddingVertical: 16, alignItems: "center" },
   cancelConfirmText: { color: "#fff", fontSize: typography.sizes.md, fontWeight: "800" },
+  prefRow: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: radii.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  prefInfo: { flex: 1 },
+  prefLabel: { fontSize: typography.sizes.md, fontWeight: "600", color: colors.text, marginBottom: 2 },
+  prefSub: { fontSize: typography.sizes.sm, color: colors.muted },
 });

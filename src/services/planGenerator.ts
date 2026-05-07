@@ -1,5 +1,4 @@
 import { useProfileStore } from "@/stores/profileStore";
-import { useStravaStore } from "@/stores/stravaStore";
 
 export interface Workout {
   id: string;
@@ -70,7 +69,7 @@ function generateWeek(
   startDate: Date,
   daysPerWeek: number,
   level: string,
-  goal: string,
+  _goal: string,
   config: typeof GOAL_CONFIG["5K"]
 ): Workout[] {
   const workouts: Workout[] = [];
@@ -221,22 +220,35 @@ export function generateMockPlan(): TrainingPlan {
   const config = GOAL_CONFIG[goal] || GOAL_CONFIG["10K"];
 
   const startDate = getThisMonday();
-  const endDate = addDays(startDate, config.weeks * 7);
 
+  // Calcula semanas com base na data da prova, ou usa o default do objetivo
+  let weeks = config.weeks;
+  if (profile.raceDate) {
+    const raceMs = new Date(profile.raceDate + "T12:00:00").getTime();
+    const diffWeeks = Math.ceil((raceMs - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    weeks = Math.max(1, diffWeeks);
+  }
+
+  const endDate = addDays(startDate, weeks * 7);
   const allWorkouts: Workout[] = [];
 
-  for (let week = 1; week <= config.weeks; week++) {
+  for (let week = 1; week <= weeks; week++) {
     const weekStart = addDays(startDate, (week - 1) * 7);
-    const weekWorkouts = generateWeek(
-      week,
-      config.weeks,
-      weekStart,
-      daysPerWeek,
-      level,
-      goal,
-      config
-    );
-    allWorkouts.push(...weekWorkouts);
+    allWorkouts.push(...generateWeek(week, weeks, weekStart, daysPerWeek, level, goal, config));
+  }
+
+  // Marca o dia da prova se houver data específica
+  if (profile.raceDate) {
+    const raceIdx = allWorkouts.findIndex(w => w.date === profile.raceDate);
+    if (raceIdx >= 0) {
+      allWorkouts[raceIdx] = {
+        ...allWorkouts[raceIdx],
+        type: "long",
+        title: "🏁 Dia da Prova",
+        description: "Chegou o grande dia! Aquece 15-20 minutos a ritmo fácil, corre ao teu ritmo alvo e dá tudo. Boa sorte!",
+        targetPacePerKm: "—",
+      };
+    }
   }
 
   const goalLabels: Record<string, string> = {
@@ -250,7 +262,7 @@ export function generateMockPlan(): TrainingPlan {
     id: generateId(),
     title: `Plano ${goalLabels[goal]} — ${profile.name ?? "Corredor"}`,
     goal,
-    weeks: config.weeks,
+    weeks,
     startDate: formatDate(startDate),
     endDate: formatDate(endDate),
     workouts: allWorkouts,

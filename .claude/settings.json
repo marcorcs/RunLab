@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Read(//c/Users/Marco Soares~~/.claude/projects/c--Users-Marco-Soares---Documents-RunLab-runlab/memory/**)",
+      "Bash(npx supabase *)"
     ]
   }
 }

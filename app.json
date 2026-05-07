@@ -16,9 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.runlab.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RunFlow usa a tua localização para rastrear corridas.",
-        "NSHealthShareUsageDescription": "RunFlow acede aos dados de saúde para personalizar o teu plano de treino.",
-        "NSHealthUpdateUsageDescription": "RunFlow guarda os teus treinos no Apple Health."
+        "NSLocationWhenInUseUsageDescription": "RunLab usa a tua localização para rastrear corridas.",
+        "NSHealthShareUsageDescription": "RunLab acede aos dados de saúde para personalizar o teu plano de treino.",
+        "NSHealthUpdateUsageDescription": "RunLab guarda os teus treinos no Apple Health."
       }
     },
     "android": {
@@ -48,10 +48,25 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B35",
+          "androidMode": "default",
+          "androidCollapsedTitle": "%(count)s treinos pendentes"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fd7fbe32-ac29-42c2-afe1-50076db8aa8a"
+      }
     }
   }
 }
