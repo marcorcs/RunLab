@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="lg" x1="0%" y1="0%" x2="20%" y2="100%">
+      <stop offset="0%" stop-color="#6AAEFF"/>
+      <stop offset="100%" stop-color="#1A52CC"/>
+    </linearGradient>
+    <radialGradient id="bg-glow" cx="50%" cy="50%" r="44%">
+      <stop offset="0%" stop-color="#2D6FE8" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#2D6FE8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Fundo -->
+  <rect width="1024" height="1024" rx="220" fill="#0A0A0F"/>
+  <rect width="1024" height="1024" rx="220" fill="url(#bg-glow)"/>
+  <rect width="1024" height="1024" rx="220" fill="none" stroke="#2D6FE8" stroke-width="2" opacity="0.15"/>
+
+  <!-- Linhas de velocidade (corrida) -->
+  <line x1="68"  y1="382" x2="155" y2="382" stroke="#4A85F0" stroke-width="8" stroke-linecap="round" opacity="0.55"/>
+  <line x1="92"  y1="432" x2="155" y2="432" stroke="#4A85F0" stroke-width="6" stroke-linecap="round" opacity="0.38"/>
+  <line x1="115" y1="478" x2="155" y2="478" stroke="#4A85F0" stroke-width="5" stroke-linecap="round" opacity="0.22"/>
+
+  <!-- ── LETRA R ── -->
+
+  <!-- Barra vertical -->
+  <line x1="205" y1="178" x2="205" y2="842"
+        stroke="url(#lg)" stroke-width="72" stroke-linecap="round"/>
+
+  <!-- Barriga (bowl) – arco D suave -->
+  <path d="M 205,178 Q 592,178 592,400 Q 592,622 205,622"
+        fill="none" stroke="url(#lg)" stroke-width="64" stroke-linecap="round"/>
+
+  <!-- Perna – diagonal como passada de corrida -->
+  <line x1="448" y1="610" x2="602" y2="842"
+        stroke="url(#lg)" stroke-width="64" stroke-linecap="round"/>
+
+  <!-- Átomo dentro da barriga do R (Lab) -->
+  <g transform="translate(408, 400)" opacity="0.70">
+    <circle cx="0" cy="0" r="11" fill="#A8C8FF"/>
+    <ellipse cx="0" cy="0" rx="46" ry="17"
+             fill="none" stroke="#A8C8FF" stroke-width="4.5" transform="rotate(0)"/>
+    <ellipse cx="0" cy="0" rx="46" ry="17"
+             fill="none" stroke="#A8C8FF" stroke-width="4.5" transform="rotate(60)"/>
+    <ellipse cx="0" cy="0" rx="46" ry="17"
+             fill="none" stroke="#A8C8FF" stroke-width="4.5" transform="rotate(120)"/>
+  </g>
+
+  <!-- ── LETRA L ── -->
+
+  <!-- Barra vertical -->
+  <line x1="682" y1="178" x2="682" y2="842"
+        stroke="url(#lg)" stroke-width="72" stroke-linecap="round"/>
+
+  <!-- Pé com curva (pista de atletismo) -->
+  <path d="M 682,842 Q 824,842 870,800"
+        fill="none" stroke="url(#lg)" stroke-width="72" stroke-linecap="round"/>
+</svg>
