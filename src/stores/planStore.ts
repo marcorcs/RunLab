@@ -26,14 +26,23 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
 
   generatePlan: async () => {
     const user = useAuthStore.getState().user;
+    const { profile } = useProfileStore.getState();
     if (!user) return;
 
     set({ isGenerating: true });
     try {
-      // Simula delay da IA (substituir por chamada real no futuro)
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      let plan: TrainingPlan;
 
-      const plan = generateMockPlan();
+      try {
+        const { data, error } = await supabase.functions.invoke("generate-plan", {
+          body: { profile },
+        });
+        if (error) throw error;
+        plan = data as TrainingPlan;
+      } catch (aiErr) {
+        console.warn("AI plan generation failed, using fallback:", aiErr);
+        plan = generateMockPlan();
+      }
 
       // Guarda no Supabase
       const { data: planData, error: planError } = await supabase
