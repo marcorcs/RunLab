@@ -7,6 +7,8 @@ interface Profile {
   goal?: string;
   level?: string;
   daysPerWeek?: number;
+  trainingDays?: number[]; // 0=Mon, 1=Tue, ..., 6=Sun
+  longRunDay?: number;
   raceDate?: string;
   onboardingCompleted?: boolean;
 }
@@ -42,6 +44,8 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
         goal: profile.goal,
         level: profile.level,
         days_per_week: profile.daysPerWeek,
+        training_days: profile.trainingDays ?? null,
+        long_run_day: profile.longRunDay ?? null,
         race_date: profile.raceDate,
         onboarding_completed: true,
         updated_at: new Date().toISOString(),
@@ -79,6 +83,8 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
           goal: data.goal,
           level: data.level,
           daysPerWeek: data.days_per_week,
+          trainingDays: data.training_days ?? undefined,
+          longRunDay: data.long_run_day ?? undefined,
           raceDate: data.race_date,
           onboardingCompleted: data.onboarding_completed,
         },

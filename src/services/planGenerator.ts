@@ -54,13 +54,6 @@ function formatDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function getThisMonday(): Date {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const day = today.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // volta atrás até segunda-feira
-  return addDays(today, diff);
-}
 
 // Gera uma semana de treinos
 function generateWeek(
@@ -219,7 +212,9 @@ export function generateMockPlan(): TrainingPlan {
   const daysPerWeek = profile.daysPerWeek || 4;
   const config = GOAL_CONFIG[goal] || GOAL_CONFIG["10K"];
 
-  const startDate = getThisMonday();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startDate = today;
 
   // Calcula semanas com base na data da prova, ou usa o default do objetivo
   let weeks = config.weeks;

@@ -142,7 +142,7 @@ export default function OnboardingRaceDateScreen() {
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: "100%" }]} />
           </View>
-          <Text style={styles.progressText}>3 de 3</Text>
+          <Text style={styles.progressText}>4 de 4</Text>
         </View>
 
         {/* Header */}

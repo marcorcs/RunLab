@@ -19,27 +19,27 @@ const GOAL_CONFIG: Record<string, { weeks: number; peakKm: number; longRunKm: nu
   "marathon":{ weeks: 16, peakKm: 70, longRunKm: 30 },
 };
 
-const TRAINING_DAYS: Record<number, number[]> = {
-  3: [1, 3, 6],
-  4: [1, 3, 5, 6],
-  5: [1, 2, 3, 5, 6],
-  6: [1, 2, 3, 4, 5, 6],
+// Default training days per count: 0=Mon … 6=Sun
+const DEFAULT_TRAINING_DAYS: Record<number, number[]> = {
+  3: [1, 3, 5],
+  4: [1, 3, 4, 5],
+  5: [1, 2, 3, 4, 5],
+  6: [0, 1, 2, 3, 4, 5],
 };
 
-function getThisMonday(): string {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const day = today.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const d = new Date(today);
-  d.setUTCDate(today.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
+function getToday(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T12:00:00Z");
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+// JS getDay() → 0=Mon…6=Sun
+function jsToMyDay(jsDay: number): number {
+  return (jsDay + 6) % 7;
 }
 
 function randomId(): string {
@@ -76,6 +76,8 @@ interface Profile {
   goal?: string;
   level?: string;
   daysPerWeek?: number;
+  trainingDays?: number[];
+  longRunDay?: number;
   raceDate?: string;
   name?: string;
 }
@@ -83,11 +85,25 @@ interface Profile {
 function buildSkeleton(profile: Profile): PlanSkeleton {
   const goal = profile.goal || "10K";
   const level = profile.level || "intermediate";
-  const daysPerWeek = Math.min(6, Math.max(3, profile.daysPerWeek || 4));
   const config = GOAL_CONFIG[goal] || GOAL_CONFIG["10K"];
   const paces = PACE_CONFIG[level] || PACE_CONFIG["intermediate"];
 
-  const startDate = getThisMonday();
+  const daysPerWeek = Math.min(6, Math.max(3, profile.daysPerWeek || 4));
+  const trainingDaysOfWeek: number[] = profile.trainingDays
+    ? [...profile.trainingDays].sort((a, b) => a - b)
+    : DEFAULT_TRAINING_DAYS[daysPerWeek] || DEFAULT_TRAINING_DAYS[4];
+
+  const actualCount = trainingDaysOfWeek.length;
+  const longRunDayOfWeek = profile.longRunDay ?? trainingDaysOfWeek[trainingDaysOfWeek.length - 1];
+
+  // Quality day: second non-long-run day (if enough days)
+  const nonLongDays = trainingDaysOfWeek.filter((d) => d !== longRunDayOfWeek);
+  const qualityDay = nonLongDays.length >= 2 ? nonLongDays[1] : (nonLongDays[0] ?? -1);
+  // Strength day: third non-long-run day (if 5+ days)
+  const strengthDay = nonLongDays.length >= 3 ? nonLongDays[2] : -1;
+
+  const startDate = getToday();
+
   let weeks = config.weeks;
   if (profile.raceDate) {
     const raceMs = new Date(profile.raceDate + "T12:00:00Z").getTime();
@@ -96,62 +112,64 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
     weeks = Math.max(1, Math.min(diffWeeks, 52));
   }
   const endDate = addDays(startDate, weeks * 7);
-  const days = TRAINING_DAYS[daysPerWeek] || TRAINING_DAYS[4];
 
   const slots: WorkoutSkeleton[] = [];
+  let current = startDate;
 
-  for (let week = 1; week <= weeks; week++) {
-    const weekStart = addDays(startDate, (week - 1) * 7);
-    const progress = week / weeks;
-    const isTaper = week >= weeks - 1;
-    const volumeMultiplier = isTaper ? 0.6
-      : progress < 0.3 ? 0.7
-      : progress < 0.6 ? 0.85
-      : progress < 0.85 ? 1.0
+  while (current < endDate) {
+    const jsDay = new Date(current + "T12:00:00Z").getUTCDay();
+    const myDay = jsToMyDay(jsDay);
+
+    const daysSince = Math.round(
+      (new Date(current + "T12:00:00Z").getTime() - new Date(startDate + "T12:00:00Z").getTime()) /
+        (24 * 60 * 60 * 1000)
+    );
+    const weekNum = Math.floor(daysSince / 7) + 1;
+
+    const progress = weekNum / weeks;
+    const isTaper = weekNum >= weeks - 1;
+    const volumeMultiplier = isTaper
+      ? 0.6
+      : progress < 0.3
+      ? 0.7
+      : progress < 0.6
+      ? 0.85
+      : progress < 0.85
+      ? 1.0
       : 0.9;
 
-    const phase = isTaper ? "redução"
-      : progress < 0.3 ? "base"
-      : progress < 0.6 ? "construção"
+    const phase = isTaper
+      ? "redução"
+      : progress < 0.3
+      ? "base"
+      : progress < 0.6
+      ? "construção"
       : "pico";
 
     const longRunKm = Math.round(config.longRunKm * volumeMultiplier);
-    const easyKm = Math.max(1, Math.round((config.peakKm * volumeMultiplier) / daysPerWeek));
+    const easyKm = Math.max(1, Math.round((config.peakKm * volumeMultiplier) / actualCount));
 
-    // Rest day on Monday (weekStart + 0)
-    slots.push({
-      id: randomId(),
-      date: weekStart,
-      type: "rest",
-      week,
-      phase,
-      targetDistanceKm: 0,
-      targetDurationMin: 0,
-      targetPacePerKm: "—",
-      isRaceDay: false,
-    });
+    const isTrainingDay = trainingDaysOfWeek.includes(myDay);
+    const isRaceDay = !!(profile.raceDate && current === profile.raceDate);
 
-    days.forEach((dayOffset, index) => {
-      const date = addDays(weekStart, dayOffset);
-      const isRaceDay = !!(profile.raceDate && date === profile.raceDate);
+    let type: string;
+    let targetDistanceKm: number;
+    let targetDurationMin: number;
+    let targetPacePerKm: string;
 
-      let type: string;
-      let targetDistanceKm: number;
-      let targetDurationMin: number;
-      let targetPacePerKm: string;
-
-      if (isRaceDay) {
-        type = "long";
-        targetDistanceKm = 0;
-        targetDurationMin = 0;
-        targetPacePerKm = "—";
-      } else if (index === days.length - 1) {
+    if (isRaceDay) {
+      type = "long";
+      targetDistanceKm = 0;
+      targetDurationMin = 0;
+      targetPacePerKm = "—";
+    } else if (isTrainingDay) {
+      if (myDay === longRunDayOfWeek) {
         type = "long";
         targetDistanceKm = longRunKm;
         targetDurationMin = Math.round(longRunKm * parsePaceToMin(paces.long));
         targetPacePerKm = paces.long;
-      } else if (index === 1 && daysPerWeek >= 4) {
-        if (week % 2 === 0) {
+      } else if (myDay === qualityDay && actualCount >= 4) {
+        if (weekNum % 2 === 0) {
           type = "intervals";
           const km = Math.max(1, Math.round(easyKm * 0.8));
           targetDistanceKm = km;
@@ -164,7 +182,7 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
           targetDurationMin = Math.round(km * 5.2);
           targetPacePerKm = paces.tempo;
         }
-      } else if (index === 2 && week % 2 === 1 && daysPerWeek >= 5) {
+      } else if (myDay === strengthDay && weekNum % 2 === 1 && actualCount >= 5) {
         type = "strength";
         targetDistanceKm = 0;
         targetDurationMin = 40;
@@ -175,9 +193,26 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
         targetDurationMin = Math.round(easyKm * parsePaceToMin(paces.easy));
         targetPacePerKm = paces.easy;
       }
+    } else {
+      type = "rest";
+      targetDistanceKm = 0;
+      targetDurationMin = 0;
+      targetPacePerKm = "—";
+    }
 
-      slots.push({ id: randomId(), date, type, week, phase, targetDistanceKm, targetDurationMin, targetPacePerKm, isRaceDay });
+    slots.push({
+      id: randomId(),
+      date: current,
+      type,
+      week: weekNum,
+      phase,
+      targetDistanceKm,
+      targetDurationMin,
+      targetPacePerKm,
+      isRaceDay,
     });
+
+    current = addDays(current, 1);
   }
 
   const goalLabels: Record<string, string> = {
@@ -194,16 +229,18 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
   };
 }
 
-function fallbackTitle(type: string, km: number): string {
+function fallbackTitle(type: string, km: number, isRaceDay: boolean): string {
+  if (isRaceDay) return "🏁 Dia da Prova";
   if (type === "rest") return "Descanso";
   if (type === "strength") return "Força & Core";
-  if (type === "long") return km > 0 ? `Corrida Longa — ${km}km` : "🏁 Dia da Prova";
+  if (type === "long") return km > 0 ? `Corrida Longa — ${km}km` : "Corrida Longa";
   if (type === "tempo") return km > 0 ? `Ritmo — ${km}km` : "Corrida de Ritmo";
   if (type === "intervals") return km > 0 ? `Intervalos — ${km}km` : "Intervalos";
   return km > 0 ? `Corrida Fácil — ${km}km` : "Corrida Fácil";
 }
 
-function fallbackDesc(type: string): string {
+function fallbackDesc(type: string, isRaceDay: boolean): string {
+  if (isRaceDay) return "Chegou o grande dia! Aquece 15-20min a ritmo fácil e dá tudo. Boa sorte!";
   if (type === "rest") return "Descanso total ou mobilidade leve. Foam roller e alongamentos suaves.";
   if (type === "strength") return "Core + pernas sem impacto. Agachamentos, lunges, pontes, prancha. 3x12 repetições.";
   if (type === "long") return "Corre a um ritmo muito confortável onde consegues falar. Hidratar bem.";
@@ -220,7 +257,10 @@ async function enrichWithAI(skeleton: PlanSkeleton, profile: Profile): Promise<o
     beginner: "Iniciante", intermediate: "Intermédio", advanced: "Avançado", elite: "Elite",
   };
 
-  const slotsForAI = skeleton.slots.map(s => ({
+  // Only send non-rest training slots to AI
+  const trainingSlots = skeleton.slots.filter((s) => s.type !== "rest");
+
+  const slotsForAI = trainingSlots.map((s) => ({
     id: s.id,
     type: s.type,
     week: s.week,
@@ -242,12 +282,11 @@ Regras:
 - Todo o texto em português
 - Títulos: máximo 40 caracteres, inclui distância se relevante (ex: "Corrida Fácil — 5km")
 - Descrições: 1-2 frases específicas com instruções concretas e motivação
-- type=rest → título "Descanso", dica de recuperação ativa
-- type=strength → título "Força & Core", exercícios específicos (agachamentos, lunges, prancha)
-- type=long → ritmo confortável, foco em completar
-- type=tempo → estrutura: aquecimento + ritmo + retorno; inclui pace ${profile.level === "beginner" ? "6:15" : "5:15"} min/km
-- type=intervals → estrutura com número de repetições baseado em km (ex: "6x800m")
-- isRaceDay=true → título "🏁 Dia da Prova", mensagem motivacional épica
+- type=long → ritmo confortável, foco em completar, hidratar
+- type=tempo → estrutura: aquecimento + ritmo limiar + retorno fácil
+- type=intervals → estrutura com repetições baseadas no km total (ex: "6x800m")
+- type=strength → exercícios específicos: agachamentos, lunges, pontes, prancha
+- isRaceDay=true → título "🏁 Dia da Prova", mensagem épica e motivacional
 
 Treinos:
 ${JSON.stringify(slotsForAI)}`;
@@ -274,20 +313,23 @@ ${JSON.stringify(slotsForAI)}`;
 
   let descMap = new Map<string, { title: string; description: string }>();
   try {
-    // Strip any accidental markdown fences
     const clean = text.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "").trim();
     const parsed = JSON.parse(clean) as Array<{ id: string; title: string; description: string }>;
-    descMap = new Map(parsed.map(p => [p.id, { title: p.title, description: p.description }]));
+    descMap = new Map(parsed.map((p) => [p.id, { title: p.title, description: p.description }]));
   } catch {
     console.warn("Failed to parse AI response, using fallback titles");
   }
 
-  const workouts = skeleton.slots.map(slot => ({
+  const workouts = skeleton.slots.map((slot) => ({
     id: slot.id,
     date: slot.date,
     type: slot.type,
-    title: descMap.get(slot.id)?.title || fallbackTitle(slot.type, slot.targetDistanceKm),
-    description: descMap.get(slot.id)?.description || fallbackDesc(slot.type),
+    title:
+      descMap.get(slot.id)?.title ||
+      fallbackTitle(slot.type, slot.targetDistanceKm, slot.isRaceDay),
+    description:
+      descMap.get(slot.id)?.description ||
+      fallbackDesc(slot.type, slot.isRaceDay),
     targetDistanceKm: slot.targetDistanceKm,
     targetDurationMin: slot.targetDurationMin,
     targetPacePerKm: slot.targetPacePerKm,

@@ -55,7 +55,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#FF6B35",
+          "color": "#4A85F0",
           "androidMode": "default",
           "androidCollapsedTitle": "%(count)s treinos pendentes"
         }

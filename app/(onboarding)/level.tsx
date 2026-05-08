@@ -47,8 +47,8 @@ export default function OnboardingLevelScreen() {
 
   function handleNext() {
     if (!selectedLevel || !selectedDays) return;
-    setProfile({ level: selectedLevel, daysPerWeek: parseInt(selectedDays) });
-    router.push("/(onboarding)/race-date");
+    setProfile({ level: selectedLevel, daysPerWeek: parseInt(selectedDays), trainingDays: undefined, longRunDay: undefined });
+    router.push("/(onboarding)/training-days");
   }
 
   const canContinue = selectedLevel !== "" && selectedDays !== "";
@@ -65,9 +65,9 @@ export default function OnboardingLevelScreen() {
             <Text style={styles.backText}>← Voltar</Text>
           </TouchableOpacity>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: "66%" }]} />
+            <View style={[styles.progressFill, { width: "50%" }]} />
           </View>
-          <Text style={styles.progressText}>2 de 3</Text>
+          <Text style={styles.progressText}>2 de 4</Text>
         </View>
 
         {/* Header */}
