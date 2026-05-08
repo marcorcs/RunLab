@@ -73,7 +73,7 @@ function toDateStr(d: Date) {
 }
 
 export default function CalendarTab() {
-  const { plan, isLoading, loadPlan, markWorkoutComplete, markWorkoutIncomplete } = usePlanStore();
+  const { plan, isLoading, isGenerating, loadPlan, generatePlan, markWorkoutComplete, markWorkoutIncomplete } = usePlanStore();
   const { profile } = useProfileStore();
 
   const today = new Date();
@@ -155,8 +155,19 @@ export default function CalendarTab() {
             <Text style={styles.emptyEmoji}>🏃</Text>
             <Text style={styles.emptyTitle}>Sem plano ativo</Text>
             <Text style={styles.emptySub}>
-              Olá {profile.name ?? ""}! Vai ao separador Perfil para criares o teu plano de treino.
+              Olá {profile.name ?? ""}! Gera o teu plano de treino personalizado com IA.
             </Text>
+            <TouchableOpacity
+              style={[styles.generateBtn, isGenerating && styles.generateBtnDisabled]}
+              onPress={generatePlan}
+              disabled={isGenerating}
+              activeOpacity={0.85}
+            >
+              {isGenerating
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.generateBtnText}>Gerar plano 🚀</Text>
+              }
+            </TouchableOpacity>
           </View>
         )}
 
@@ -386,6 +397,9 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 24, fontWeight: "800", color: colors.text, letterSpacing: -0.5 },
   emptySub: { fontSize: typography.sizes.md, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
+  generateBtn: { backgroundColor: colors.accent, borderRadius: radii.lg, paddingVertical: 14, paddingHorizontal: spacing.xxxl, alignItems: "center", marginTop: spacing.md },
+  generateBtnDisabled: { opacity: 0.5 },
+  generateBtnText: { color: "#fff", fontSize: typography.sizes.lg, fontWeight: "800", letterSpacing: 0.3 },
   loadingWrap: { alignItems: "center", justifyContent: "center", padding: 60 },
   loadingLogo: { width: 96, height: 96 },
 
