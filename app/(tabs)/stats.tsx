@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, radii, typography } from "@/theme";
 import { usePlanStore } from "@/stores/planStore";
@@ -45,9 +46,9 @@ export default function StatsTab() {
   const { plan, isLoading, loadPlan } = usePlanStore();
   const { isConnected, activities, fetchActivities } = useStravaStore();
 
-  useEffect(() => {
-    loadPlan();
-  }, []);
+  useFocusEffect(
+    useCallback(() => { loadPlan(); }, [])
+  );
 
   useEffect(() => {
     if (isConnected) fetchActivities();
@@ -234,7 +235,7 @@ export default function StatsTab() {
         <Text style={styles.sectionTitle}>Esta semana</Text>
         <View style={styles.card}>
           <View style={styles.weekRow}>
-            {stats.weekDays.map(({ dateStr, isToday, isPast, workout }, i) => {
+            {stats.weekDays.map(({ isToday, isPast, workout }, i) => {
               const isCompleted = workout && (workout as any).completed;
               const dotColor = workout ? WORKOUT_COLORS[workout.type] : colors.border;
               return (

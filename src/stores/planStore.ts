@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "@/services/supabase";
-import { generateMockPlan, generateExtensionWorkouts, TrainingPlan, Workout } from "@/services/planGenerator";
+import { generateExtensionWorkouts, TrainingPlan, Workout } from "@/services/planGenerator";
 import { useProfileStore } from "@/stores/profileStore";
 import { useAuthStore } from "@/stores/authStore";
 import { scheduleWorkoutNotifications } from "@/services/notifications";
@@ -31,18 +31,24 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
 
     set({ isGenerating: true });
     try {
-      let plan: TrainingPlan;
+      // Cancela e apaga planos/treinos activos anteriores
+      const { data: existingPlans } = await supabase
+        .from("training_plans")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active");
 
-      try {
-        const { data, error } = await supabase.functions.invoke("generate-plan", {
-          body: { profile },
-        });
-        if (error) throw error;
-        plan = data as TrainingPlan;
-      } catch (aiErr) {
-        console.warn("AI plan generation failed, using fallback:", aiErr);
-        plan = generateMockPlan();
+      if (existingPlans && existingPlans.length > 0) {
+        const ids = existingPlans.map((p: any) => p.id);
+        await supabase.from("workouts").delete().in("plan_id", ids);
+        await supabase.from("training_plans").update({ status: "cancelled" }).in("id", ids);
       }
+
+      const { data, error } = await supabase.functions.invoke("generate-plan", {
+        body: { profile },
+      });
+      if (error) throw error;
+      const plan = data as TrainingPlan;
 
       // Guarda no Supabase
       const { data: planData, error: planError } = await supabase
@@ -253,6 +259,7 @@ markWorkoutIncomplete: async (workoutId) => {
   cancelPlan: async () => {
     const { plan } = get();
     if (!plan) return;
+    await supabase.from("workouts").delete().eq("plan_id", plan.id);
     const { error } = await supabase
       .from("training_plans")
       .update({ status: "cancelled" })

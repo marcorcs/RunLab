@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { usePlanStore } from "@/stores/planStore";
@@ -159,7 +160,7 @@ export default function CalendarTab() {
             </Text>
             <TouchableOpacity
               style={[styles.generateBtn, isGenerating && styles.generateBtnDisabled]}
-              onPress={generatePlan}
+              onPress={() => generatePlan().catch(() => Alert.alert("Erro", "Não foi possível gerar o plano. Verifica a tua ligação e tenta novamente."))}
               disabled={isGenerating}
               activeOpacity={0.85}
             >
