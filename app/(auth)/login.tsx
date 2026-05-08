@@ -10,11 +10,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
+  Dimensions,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/stores/authStore";
 import { colors, spacing, radii, typography } from "@/theme";
+
+const { width } = Dimensions.get("window");
 
 export default function LoginScreen() {
   const { signInWithEmail, isLoading } = useAuthStore();
@@ -29,7 +33,6 @@ export default function LoginScreen() {
     }
     try {
       await signInWithEmail(email.trim(), password);
-      // AuthGuard no _layout.tsx trata do redirect automático
     } catch (err: any) {
       Alert.alert(
         "Erro ao entrar",
@@ -42,6 +45,9 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Glow de fundo */}
+      <View style={styles.glow} />
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -51,23 +57,27 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back */}
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
+          {/* Voltar */}
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Text style={styles.backText}>← Voltar</Text>
           </TouchableOpacity>
 
-          {/* Header */}
+          {/* Logo + Header */}
           <View style={styles.header}>
+            <View style={styles.logoWrap}>
+              <Image
+                source={require("../../assets/icon.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
             <Text style={styles.title}>Bem-vindo de volta</Text>
             <Text style={styles.subtitle}>
               Entra na tua conta para ver o teu plano de treino
             </Text>
           </View>
 
-          {/* Form */}
+          {/* Formulário */}
           <View style={styles.form}>
             <View style={styles.fieldWrap}>
               <Text style={styles.label}>Email</Text>
@@ -102,9 +112,7 @@ export default function LoginScreen() {
                   style={styles.eyeBtn}
                   onPress={() => setShowPassword((v) => !v)}
                 >
-                  <Text style={styles.eyeText}>
-                    {showPassword ? "🙈" : "👁️"}
-                  </Text>
+                  <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -133,9 +141,7 @@ export default function LoginScreen() {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Ainda não tens conta? </Text>
-            <TouchableOpacity
-              onPress={() => router.replace("/(auth)/register")}
-            >
+            <TouchableOpacity onPress={() => router.replace("/(auth)/register")}>
               <Text style={styles.footerLink}>Regista-te</Text>
             </TouchableOpacity>
           </View>
@@ -150,6 +156,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  glow: {
+    position: "absolute",
+    width: width * 0.8,
+    height: width * 0.8,
+    borderRadius: width * 0.4,
+    backgroundColor: colors.accentGlow,
+    top: -width * 0.3,
+    left: -width * 0.1,
+  },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -157,7 +172,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
     alignSelf: "flex-start",
   },
   backText: {
@@ -165,21 +180,48 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     fontWeight: "600",
   },
+
+  // Header
   header: {
+    alignItems: "center",
     marginBottom: spacing.xxxl,
   },
+  logoWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    overflow: "hidden",
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.card,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  logoImage: {
+    width: "100%",
+    height: "100%",
+  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "800",
     color: colors.text,
     letterSpacing: -0.5,
     marginBottom: spacing.sm,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: typography.sizes.md,
     color: colors.textSecondary,
     lineHeight: 22,
+    textAlign: "center",
+    maxWidth: 280,
   },
+
+  // Form
   form: {
     gap: spacing.xs,
   },
@@ -238,6 +280,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     paddingVertical: 16,
     alignItems: "center",
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
   },
   btnDisabled: {
     opacity: 0.6,
@@ -248,6 +295,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.3,
   },
+
+  // Footer
   footer: {
     flexDirection: "row",
     justifyContent: "center",
