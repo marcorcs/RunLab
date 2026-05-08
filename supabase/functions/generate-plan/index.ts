@@ -88,19 +88,30 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
   const config = GOAL_CONFIG[goal] || GOAL_CONFIG["10K"];
   const paces = PACE_CONFIG[level] || PACE_CONFIG["intermediate"];
 
-  const daysPerWeek = Math.min(6, Math.max(3, profile.daysPerWeek || 4));
-  const trainingDaysOfWeek: number[] = profile.trainingDays
-    ? [...profile.trainingDays].sort((a, b) => a - b)
+  const daysPerWeek = Math.min(6, Math.max(2, profile.daysPerWeek || 4));
+
+  // Coerce to numbers (JSON can sometimes deserialise as strings)
+  const rawDays = Array.isArray(profile.trainingDays)
+    ? profile.trainingDays.map(Number).filter((n) => !isNaN(n))
+    : [];
+  const trainingDaysOfWeek: number[] = rawDays.length >= 2
+    ? [...rawDays].sort((a, b) => a - b)
     : DEFAULT_TRAINING_DAYS[daysPerWeek] || DEFAULT_TRAINING_DAYS[4];
 
   const actualCount = trainingDaysOfWeek.length;
-  const longRunDayOfWeek = profile.longRunDay ?? trainingDaysOfWeek[trainingDaysOfWeek.length - 1];
 
-  // Quality day: second non-long-run day (if enough days)
+  // Validate longRunDay is actually a training day
+  const rawLongRun = profile.longRunDay != null ? Number(profile.longRunDay) : NaN;
+  const longRunDayOfWeek = !isNaN(rawLongRun) && trainingDaysOfWeek.includes(rawLongRun)
+    ? rawLongRun
+    : trainingDaysOfWeek[trainingDaysOfWeek.length - 1];
+
+  // Non-long training days (sorted)
   const nonLongDays = trainingDaysOfWeek.filter((d) => d !== longRunDayOfWeek);
-  const qualityDay = nonLongDays.length >= 2 ? nonLongDays[1] : (nonLongDays[0] ?? -1);
-  // Strength day: third non-long-run day (if 5+ days)
-  const strengthDay = nonLongDays.length >= 3 ? nonLongDays[2] : -1;
+  // Quality = penultimate training day (last non-long day, gives best recovery before long run)
+  const qualityDay = nonLongDays.length >= 1 ? nonLongDays[nonLongDays.length - 1] : -1;
+  // Strength = first non-long day (if 5+ training days)
+  const strengthDay = nonLongDays.length >= 3 ? nonLongDays[0] : -1;
 
   const startDate = getToday();
 
@@ -168,7 +179,7 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
         targetDistanceKm = longRunKm;
         targetDurationMin = Math.round(longRunKm * parsePaceToMin(paces.long));
         targetPacePerKm = paces.long;
-      } else if (myDay === qualityDay && actualCount >= 4) {
+      } else if (myDay === qualityDay && actualCount >= 3) {
         if (weekNum % 2 === 0) {
           type = "intervals";
           const km = Math.max(1, Math.round(easyKm * 0.8));

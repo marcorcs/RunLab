@@ -133,7 +133,7 @@ export default function CalendarTab() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Image
-              source={require("../../assets/icon.png")}
+              source={require("../../assets/logo-mark.png")}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -163,7 +163,7 @@ export default function CalendarTab() {
         {isLoading && (
           <View style={styles.loadingWrap}>
             <Image
-              source={require("../../assets/icon.png")}
+              source={require("../../assets/logo-mark.png")}
               style={styles.loadingLogo}
               resizeMode="contain"
             />
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  headerLogo: { width: 44, height: 44, borderRadius: 10 },
+  headerLogo: { width: 44, height: 44 },
   logo: { fontSize: 24, fontWeight: "900", color: colors.text, letterSpacing: -0.5 },
   logoAccent: { color: colors.accent },
   planGoal: { fontSize: typography.sizes.xs, color: colors.muted, fontWeight: "600", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 24, fontWeight: "800", color: colors.text, letterSpacing: -0.5 },
   emptySub: { fontSize: typography.sizes.md, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
   loadingWrap: { alignItems: "center", justifyContent: "center", padding: 60 },
-  loadingLogo: { width: 96, height: 96, borderRadius: 22 },
+  loadingLogo: { width: 96, height: 96 },
 
   // Today card
   todaySection: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
