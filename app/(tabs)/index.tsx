@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { usePlanStore } from "@/stores/planStore";
@@ -130,9 +131,16 @@ export default function CalendarTab() {
 
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.logo}>Run<Text style={styles.logoAccent}>Lab</Text></Text>
-            {plan && <Text style={styles.planGoal}>{plan.goal} · {plan.weeks} semanas</Text>}
+          <View style={styles.headerLeft}>
+            <Image
+              source={require("../../assets/icon.png")}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <View>
+              <Text style={styles.logo}>Run<Text style={styles.logoAccent}>Lab</Text></Text>
+              {plan && <Text style={styles.planGoal}>{plan.goal} · {plan.weeks} semanas</Text>}
+            </View>
           </View>
           {plan && (
             <View style={styles.activeBadge}>
@@ -154,7 +162,12 @@ export default function CalendarTab() {
 
         {isLoading && (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color={colors.accent} size="large" />
+            <Image
+              source={require("../../assets/icon.png")}
+              style={styles.loadingLogo}
+              resizeMode="contain"
+            />
+            <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: 20 }} />
           </View>
         )}
 
@@ -361,6 +374,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  headerLogo: { width: 44, height: 44, borderRadius: 10 },
   logo: { fontSize: 24, fontWeight: "900", color: colors.text, letterSpacing: -0.5 },
   logoAccent: { color: colors.accent },
   planGoal: { fontSize: typography.sizes.xs, color: colors.muted, fontWeight: "600", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
@@ -372,6 +387,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 24, fontWeight: "800", color: colors.text, letterSpacing: -0.5 },
   emptySub: { fontSize: typography.sizes.md, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
   loadingWrap: { alignItems: "center", justifyContent: "center", padding: 60 },
+  loadingLogo: { width: 96, height: 96, borderRadius: 22 },
 
   // Today card
   todaySection: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
