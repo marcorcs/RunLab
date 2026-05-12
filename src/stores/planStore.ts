@@ -4,6 +4,7 @@ import { generateExtensionWorkouts, TrainingPlan, Workout } from "@/services/pla
 import { useProfileStore } from "@/stores/profileStore";
 import { useAuthStore } from "@/stores/authStore";
 import { scheduleWorkoutNotifications } from "@/services/notifications";
+import { StravaService } from "@/services/strava";
 
 interface PlanStore {
   plan: TrainingPlan | null;
@@ -44,8 +45,34 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
         await supabase.from("training_plans").update({ status: "cancelled" }).in("id", ids);
       }
 
+      // Tenta obter resumo do Strava (não bloqueia se falhar)
+      let stravaInsights = null;
+      try {
+        const connected = await StravaService.isConnected();
+        if (connected) {
+          const activities = await StravaService.getRecentRuns(8);
+          if (activities.length > 0) {
+            const totalKm = activities.reduce((s, a) => s + a.distance / 1000, 0);
+            const avgWeeklyKm = Math.round(totalKm / 8);
+            const longestRunKm = Math.round(Math.max(...activities.map(a => a.distance / 1000)));
+            const avgSpeedMs = activities.reduce((s, a) => s + a.average_speed, 0) / activities.length;
+            const avgPaceMin = 1000 / avgSpeedMs / 60;
+            const pMin = Math.floor(avgPaceMin);
+            const pSec = Math.round((avgPaceMin - pMin) * 60);
+            stravaInsights = {
+              totalRuns: activities.length,
+              avgWeeklyKm,
+              longestRunKm,
+              avgPacePerKm: `${pMin}:${String(pSec).padStart(2, "0")}`,
+            };
+          }
+        }
+      } catch {
+        // Strava indisponível — continua sem os dados
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-plan", {
-        body: { profile },
+        body: { profile, stravaInsights },
       });
       if (error) throw error;
       const plan = data as TrainingPlan;

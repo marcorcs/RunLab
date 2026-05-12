@@ -86,6 +86,13 @@ interface Profile {
   weightKg?: number;
 }
 
+interface StravaInsights {
+  totalRuns: number;
+  avgWeeklyKm: number;
+  longestRunKm: number;
+  avgPacePerKm: string;
+}
+
 function buildSkeleton(profile: Profile): PlanSkeleton {
   const goal = profile.goal || "10K";
   const level = profile.level || "intermediate";
@@ -161,8 +168,14 @@ function buildSkeleton(profile: Profile): PlanSkeleton {
       ? "construção"
       : "pico";
 
+    const weeklyKm = config.peakKm * volumeMultiplier;
     const longRunKm = Math.round(config.longRunKm * volumeMultiplier);
-    const easyKm = Math.max(1, Math.round((config.peakKm * volumeMultiplier) / actualCount));
+    const otherDaysCount = Math.max(1, actualCount - 1);
+    // Easy km = remaining weekly volume spread across non-long days, capped at 65% of long run
+    const easyKm = Math.max(1, Math.min(
+      Math.round((weeklyKm - longRunKm) / otherDaysCount),
+      Math.max(1, Math.round(longRunKm * 0.65))
+    ));
 
     const isTrainingDay = trainingDaysOfWeek.includes(myDay);
     const isRaceDay = !!(profile.raceDate && current === profile.raceDate);
@@ -264,7 +277,7 @@ function fallbackDesc(type: string, isRaceDay: boolean): string {
   return "Corre a um ritmo confortável. Recuperação ativa — não forces o ritmo.";
 }
 
-async function enrichWithAI(skeleton: PlanSkeleton, profile: Profile): Promise<object> {
+async function enrichWithAI(skeleton: PlanSkeleton, profile: Profile, stravaInsights?: StravaInsights | null): Promise<object> {
   const goalLabels: Record<string, string> = {
     "5K": "5K", "10K": "10K", half: "Meia Maratona", marathon: "Maratona",
   };
@@ -293,23 +306,34 @@ async function enrichWithAI(skeleton: PlanSkeleton, profile: Profile): Promise<o
   const bodyParts = [genderStr, ageStr, heightStr, weightStr].filter(Boolean);
   const bodyInfo = bodyParts.length > 0 ? `, ${bodyParts.join(", ")}` : "";
 
-  const prompt = `És um treinador de corrida profissional. Cria títulos e descrições personalizados para cada treino.
+  const stravaLine = stravaInsights
+    ? `Histórico recente (8 semanas Strava): ${stravaInsights.totalRuns} corridas, média ${stravaInsights.avgWeeklyKm}km/semana, corrida mais longa ${stravaInsights.longestRunKm}km, ritmo médio ${stravaInsights.avgPacePerKm}/km.`
+    : null;
 
-Atleta: ${profile.name || "Corredor"}${bodyInfo}, objetivo ${goalLabels[profile.goal || "10K"] || profile.goal}, nível ${levelLabels[profile.level || "intermediate"] || profile.level}, ${profile.daysPerWeek || 4} dias/semana.
+  const paces = PACE_CONFIG[profile.level || "intermediate"] || PACE_CONFIG["intermediate"];
+
+  const prompt = `És um treinador de corrida experiente. Cria títulos e descrições motivadoras e específicas para cada treino.
+
+Atleta: ${profile.name || "Corredor"}${bodyInfo}, objetivo ${goalLabels[profile.goal || "10K"] || profile.goal}, nível ${levelLabels[profile.level || "intermediate"] || profile.level}, ${profile.daysPerWeek || 4} dias/semana.${stravaLine ? `\n${stravaLine}` : ""}
 Plano: ${skeleton.weeks} semanas, de ${skeleton.startDate} a ${skeleton.endDate}.
+Ritmos alvo: fácil ${paces.easy}/km · tempo ${paces.tempo}/km · intervalos ${paces.intervals}/km · longa ${paces.long}/km.
 
 Retorna APENAS um array JSON (sem markdown, sem texto extra):
 [{"id":"...","title":"...","description":"..."}]
 
-Regras:
-- Todo o texto em português
-- Títulos: máximo 40 caracteres, inclui distância se relevante (ex: "Corrida Fácil — 5km")
-- Descrições: 1-2 frases específicas com instruções concretas e motivação
-- type=long → ritmo confortável, foco em completar, hidratar
-- type=tempo → estrutura: aquecimento + ritmo limiar + retorno fácil
-- type=intervals → estrutura com repetições baseadas no km total (ex: "6x800m")
-- type=strength → exercícios específicos: agachamentos, lunges, pontes, prancha
-- isRaceDay=true → título "🏁 Dia da Prova", mensagem épica e motivacional
+Regras obrigatórias:
+- Todo o texto em português de Portugal
+- Títulos: máximo 35 caracteres, inclui distância quando km > 0 (ex: "Corrida Fácil 5km")
+- Descrições: 2-4 frases MUITO específicas. Estrutura passo a passo com ritmos exatos, distâncias parciais e instruções claras. Sem generalidades.
+
+Formato exigido por tipo:
+- type=easy → "Corre Xkm a ${paces.easy}/km — ritmo de conversa, esforço 5/10. [1 frase de motivação ou dica de técnica de corrida]."
+- type=long → "Corre Xkm a ${paces.long}/km — ritmo muito confortável, consegues falar em frases completas. Bebe 150-200ml a cada 20 min. [1 dica de estratégia mental ou alimentação para longas distâncias]."
+- type=tempo → "Aquece 2km a ${paces.easy}/km. Corre Xkm a ${paces.tempo}/km (esforço 7-8/10, respiração controlada mas difícil). Recupera 1km a ${paces.easy}/km. Total: Ykm."
+- type=intervals → Calcula repetições a partir do km total (ex: 5km total → 6×700m ou 5×1000m). Formato: "Aquece 1.5km a ${paces.easy}/km. Faz Nx[distância] a ${paces.intervals}/km com 90s a trote entre cada. Retorno 1km fácil. Total: Xkm."
+- type=strength → "Circuito de 3 séries: [4 exercícios concretos com repetições, ex: 15 agachamentos, 12 lunges cada perna, 20 elevações de calcanhar, 45s prancha]. Descanso 60s entre séries. Foco em [músculo ou objetivo relevante para corrida]."
+- type=rest → "Descanso ativo: [opção 1 — ex: 20 min de foam roller nas pernas] ou [opção 2 — ex: 15 min de alongamentos de cadeia posterior]. Evita esforço intenso."
+- isRaceDay=true → título "Dia da Prova", descrição com estratégia: aquecimento, gestão de ritmo por fases, mentalidade${stravaLine ? "\n- Usa o histórico Strava para ajustar a dificuldade percebida nas descrições ao nível real demonstrado pelo atleta" : ""}
 
 Treinos:
 ${JSON.stringify(slotsForAI)}`;
@@ -322,7 +346,7 @@ ${JSON.stringify(slotsForAI)}`;
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: 16384, temperature: 0.6 },
       }),
     }
   );
@@ -399,8 +423,9 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const profile: Profile = body.profile || {};
+    const stravaInsights: StravaInsights | null = body.stravaInsights ?? null;
     const skeleton = buildSkeleton(profile);
-    const plan = await enrichWithAI(skeleton, profile);
+    const plan = await enrichWithAI(skeleton, profile, stravaInsights);
 
     return new Response(JSON.stringify(plan), {
       headers: { ...CORS, "Content-Type": "application/json" },

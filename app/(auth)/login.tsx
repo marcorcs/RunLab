@@ -68,7 +68,7 @@ export default function LoginScreen() {
               <Image
                 source={require("../../assets/icon.png")}
                 style={styles.logoImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
             </View>
             <Text style={styles.title}>Bem-vindo de volta</Text>

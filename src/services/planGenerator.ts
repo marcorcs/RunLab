@@ -97,8 +97,13 @@ export function generateExtensionWorkouts(
   const strengthDay = nonLongDays.length >= 3 ? nonLongDays[0] : -1;
 
   const volumeMultiplier = 0.85;
+  const weeklyKm = config.peakKm * volumeMultiplier;
   const longRunKm = Math.round(config.longRunKm * volumeMultiplier);
-  const easyKm = Math.max(1, Math.round((config.peakKm * volumeMultiplier) / actualCount));
+  const otherDaysCount = Math.max(1, actualCount - 1);
+  const easyKm = Math.max(1, Math.min(
+    Math.round((weeklyKm - longRunKm) / otherDaysCount),
+    Math.max(1, Math.round(longRunKm * 0.65))
+  ));
 
   const workouts: Workout[] = [];
   const end = addDays(startDate, numWeeks * 7);

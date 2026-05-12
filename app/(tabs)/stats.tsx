@@ -47,12 +47,11 @@ export default function StatsTab() {
   const { isConnected, activities, fetchActivities } = useStravaStore();
 
   useFocusEffect(
-    useCallback(() => { loadPlan(); }, [])
+    useCallback(() => {
+      loadPlan();
+      if (isConnected) fetchActivities();
+    }, [isConnected])
   );
-
-  useEffect(() => {
-    if (isConnected) fetchActivities();
-  }, [isConnected]);
 
   const stats = useMemo(() => {
     if (!plan) return null;
@@ -134,44 +133,68 @@ export default function StatsTab() {
   }, [activities, plan, isConnected]);
 
   const raceEstimates = useMemo(() => {
-    if (!isConnected || !plan || activities.length === 0) return null;
+    // Constrói pool combinado: Strava (dados reais) + treinos concluídos manualmente
+    interface RunSample { distM: number; timeS: number; speedMps: number; source: "strava" | "plan" }
+    const pool: RunSample[] = [];
 
-    const linkedIds = new Set(
-      plan.workouts.map((w) => (w as any).strava_activity_id).filter(Boolean)
-    );
-    const linked = activities.filter((a) => linkedIds.has(a.id));
-    if (linked.length < 2) return null;
+    // Strava
+    for (const a of activities) {
+      if (a.distance >= 3000 && a.moving_time > 0) {
+        pool.push({ distM: a.distance, timeS: a.moving_time, speedMps: a.average_speed, source: "strava" });
+      }
+    }
 
-    // Velocidade média ponderada pelo tempo
-    const totalDist = linked.reduce((s, a) => s + a.distance, 0);
-    const totalTime = linked.reduce((s, a) => s + a.moving_time, 0);
-    if (totalDist === 0 || totalTime === 0) return null;
+    // Treinos concluídos manualmente (sem link Strava, tipo corrida, >= 3km)
+    if (plan) {
+      const stravaIds = new Set(activities.map((a) => a.id));
+      for (const w of plan.workouts) {
+        if (
+          (w as any).completed &&
+          ["easy", "tempo", "intervals", "long"].includes(w.type) &&
+          w.targetDistanceKm >= 3 &&
+          w.targetDurationMin > 0 &&
+          !(stravaIds.has((w as any).strava_activity_id))
+        ) {
+          const distM = w.targetDistanceKm * 1000;
+          const timeS = w.targetDurationMin * 60;
+          pool.push({ distM, timeS, speedMps: distM / timeS, source: "plan" });
+        }
+      }
+    }
 
-    const avgSpeedMps = totalDist / totalTime;
-    const avgDistM = totalDist / linked.length;
-    const refTimeS = avgDistM / avgSpeedMps;
+    if (pool.length === 0) return null;
+
+    // Melhor esforço = amostra com maior velocidade média
+    const best = pool.reduce((top, r) => r.speedMps > top.speedMps ? r : top);
 
     // Fórmula de Riegel: T2 = T1 × (D2/D1)^1.06
     function predict(targetM: number): { time: string; pace: string } {
-      const timeS = refTimeS * Math.pow(targetM / avgDistM, 1.06);
+      const timeS = best.timeS * Math.pow(targetM / best.distM, 1.06);
       const paceS = timeS / (targetM / 1000);
       const h = Math.floor(timeS / 3600);
       const m = Math.floor((timeS % 3600) / 60);
       const s = Math.round(timeS % 60);
       const timeStr = h > 0
-        ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+        ? `${h}h${String(m).padStart(2, "0")}`
         : `${m}:${String(s).padStart(2, "0")}`;
       const paceStr = `${Math.floor(paceS / 60)}:${String(Math.round(paceS % 60)).padStart(2, "0")}`;
       return { time: timeStr, pace: paceStr };
     }
 
+    const stravaCount = pool.filter((r) => r.source === "strava").length;
+    const planCount = pool.filter((r) => r.source === "plan").length;
+
     return {
-      count: linked.length,
+      total: pool.length,
+      stravaCount,
+      planCount,
+      refDistKm: Math.round(best.distM / 100) / 10,
+      refPace: formatPace(best.speedMps),
       predictions: [
-        { label: "5K",      dist: 5000,  ...predict(5000)  },
-        { label: "10K",     dist: 10000, ...predict(10000) },
-        { label: "Meia",    dist: 21097, ...predict(21097) },
-        { label: "Maratona",dist: 42195, ...predict(42195) },
+        { label: "5K",    dist: 5000,  ...predict(5000)  },
+        { label: "10K",   dist: 10000, ...predict(10000) },
+        { label: "21km",  dist: 21097, ...predict(21097) },
+        { label: "42km",  dist: 42195, ...predict(42195) },
       ],
     };
   }, [activities, plan, isConnected]);
@@ -194,10 +217,39 @@ export default function StatsTab() {
   if (!plan || !stats) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centered}>
-          <Text style={styles.emptyEmoji}>📊</Text>
-          <Text style={styles.emptyText}>Cria um plano de treino{"\n"}para ver as tuas estatísticas</Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Estatísticas</Text>
+          </View>
+          {!raceEstimates && (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>Cria um plano de treino e regista corridas para ver as tuas estatísticas e previsões de prova.</Text>
+            </View>
+          )}
+          {raceEstimates && (
+            <>
+              <Text style={styles.sectionTitle}>Previsão de prova</Text>
+              <View style={styles.card}>
+                <Text style={styles.estimateNote}>
+                  Baseado em {raceEstimates.total} corrida{raceEstimates.total !== 1 ? "s" : ""}
+                  {raceEstimates.stravaCount > 0 && raceEstimates.planCount > 0
+                    ? ` (${raceEstimates.stravaCount} Strava + ${raceEstimates.planCount} manual)`
+                    : raceEstimates.stravaCount > 0 ? " via Strava" : " registadas"
+                  } · melhor esforço: {raceEstimates.refDistKm}km a {raceEstimates.refPace}/km
+                </Text>
+                <View style={styles.estimateGrid}>
+                  {raceEstimates.predictions.map(({ label, time, pace }) => (
+                    <View key={label} style={styles.estimateCard}>
+                      <Text style={styles.estimateDist}>{label}</Text>
+                      <Text style={styles.estimateTime}>{time}</Text>
+                      <Text style={styles.estimatePace}>{pace}/km</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </>
+          )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -347,10 +399,14 @@ export default function StatsTab() {
         {/* Race estimates */}
         {raceEstimates && (
           <>
-            <Text style={styles.sectionTitle}>Estimativa de prova</Text>
+            <Text style={styles.sectionTitle}>Previsão de prova</Text>
             <View style={styles.card}>
               <Text style={styles.estimateNote}>
-                Baseado em {raceEstimates.count} corrida{raceEstimates.count !== 1 ? "s" : ""} registadas · Fórmula de Riegel
+                Baseado em {raceEstimates.total} corrida{raceEstimates.total !== 1 ? "s" : ""}
+                {raceEstimates.stravaCount > 0 && raceEstimates.planCount > 0
+                  ? ` (${raceEstimates.stravaCount} Strava + ${raceEstimates.planCount} manual)`
+                  : raceEstimates.stravaCount > 0 ? " via Strava" : " registadas"
+                } · melhor esforço: {raceEstimates.refDistKm}km a {raceEstimates.refPace}/km
               </Text>
               <View style={styles.estimateGrid}>
                 {raceEstimates.predictions.map(({ label, time, pace }) => (
@@ -376,7 +432,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md },
   loadingLogo: { width: 160, height: 160 },
-  emptyEmoji: { fontSize: 48 },
+  emptyCard: { backgroundColor: colors.card, borderRadius: radii.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
   emptyText: { color: colors.textSecondary, fontSize: typography.sizes.md, textAlign: "center", lineHeight: 22 },
 
   header: { marginBottom: spacing.xl },

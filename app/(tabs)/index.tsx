@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { usePlanStore } from "@/stores/planStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { Workout } from "@/services/planGenerator";
@@ -74,7 +74,7 @@ function toDateStr(d: Date) {
 }
 
 export default function CalendarTab() {
-  const { plan, isLoading, isGenerating, loadPlan, generatePlan, markWorkoutComplete, markWorkoutIncomplete } = usePlanStore();
+  const { plan, isLoading, loadPlan, markWorkoutComplete, markWorkoutIncomplete } = usePlanStore();
   const { profile } = useProfileStore();
 
   const today = new Date();
@@ -158,15 +158,11 @@ export default function CalendarTab() {
               Olá {profile.name ?? ""}! Gera o teu plano de treino personalizado com IA.
             </Text>
             <TouchableOpacity
-              style={[styles.generateBtn, isGenerating && styles.generateBtnDisabled]}
-              onPress={() => generatePlan().catch(() => Alert.alert("Erro", "Não foi possível gerar o plano. Verifica a tua ligação e tenta novamente."))}
-              disabled={isGenerating}
+              style={styles.generateBtn}
+              onPress={() => router.push("/(onboarding)/goal")}
               activeOpacity={0.85}
             >
-              {isGenerating
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.generateBtnText}>Gerar plano</Text>
-              }
+              <Text style={styles.generateBtnText}>Gerar plano</Text>
             </TouchableOpacity>
           </View>
         )}
