@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RunLab — O teu treinador de corrida com IA</title>
+  <meta name="description" content="Planos de treino gerados por IA, adaptados ao teu nível, objetivo e histórico de corridas. Integração com Strava. Disponível para iOS e Android." />
+  <meta property="og:title" content="RunLab — O teu treinador de corrida com IA" />
+  <meta property="og:description" content="Planos de treino gerados por IA, adaptados ao teu nível, objetivo e histórico de corridas." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0A0A0F;
+      --surface:  #13131A;
+      --card:     #1A1A24;
+      --accent:   #2D6FE8;
+      --accent-soft: #4A85F0;
+      --accent-glow: rgba(45,111,232,0.15);
+      --accent-border: rgba(45,111,232,0.35);
+      --success:  #1DDB8B;
+      --warning:  #FFB800;
+      --purple:   #6C63FF;
+      --cyan:     #00BCD4;
+      --text:     #F0EEE8;
+      --text-secondary: #A0A0B0;
+      --muted:    #6B6A7A;
+      --border:   #2A2A38;
+      --strava:   #FC4C02;
+      --radius:   16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 48px;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo-mark {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; color: #fff;
+    }
+    .nav-logo-text { font-size: 20px; font-weight: 800; color: var(--text); }
+    .nav-logo-text span { color: var(--accent); }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    .btn-nav {
+      background: var(--accent); color: #fff;
+      padding: 10px 22px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; text-decoration: none;
+      transition: opacity .2s;
+    }
+    .btn-nav:hover { opacity: .85; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 120px 48px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse, rgba(45,111,232,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-inner {
+      max-width: 1200px; width: 100%;
+      display: grid; grid-template-columns: 1fr 1fr;
+      align-items: center; gap: 80px;
+      position: relative; z-index: 1;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent-glow); border: 1px solid var(--accent-border);
+      border-radius: 999px; padding: 6px 14px;
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 24px;
+    }
+    .hero-badge::before { content: '●'; font-size: 8px; }
+    .hero-title {
+      font-size: clamp(40px,5vw,64px);
+      font-weight: 900; line-height: 1.1; letter-spacing: -1.5px;
+      color: var(--text); margin-bottom: 20px;
+    }
+    .hero-title .accent { color: var(--accent); }
+    .hero-sub {
+      font-size: 18px; color: var(--text-secondary); line-height: 1.7;
+      margin-bottom: 40px; max-width: 480px;
+    }
+    .hero-ctas { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 48px; }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      padding: 16px 32px; border-radius: 14px;
+      font-size: 16px; font-weight: 800; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 0 32px rgba(45,111,232,0.3);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 40px rgba(45,111,232,0.4); }
+    .btn-secondary {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--border);
+      padding: 16px 32px; border-radius: 14px;
+      font-size: 16px; font-weight: 700; text-decoration: none;
+      transition: border-color .2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); }
+    .hero-social-proof {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 13px; color: var(--muted);
+    }
+    .proof-avatars {
+      display: flex;
+    }
+    .proof-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      margin-left: -8px;
+    }
+    .proof-avatar:first-child { margin-left: 0; }
+
+    /* ── PHONE MOCKUP ── */
+    .hero-visual { display: flex; justify-content: center; align-items: center; }
+    .phone-wrap {
+      position: relative;
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-16px); }
+    }
+    .phone {
+      width: 280px; height: 560px;
+      background: var(--surface);
+      border-radius: 40px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+      position: relative;
+    }
+    .phone-notch {
+      width: 100px; height: 28px;
+      background: var(--bg);
+      border-radius: 0 0 20px 20px;
+      margin: 0 auto;
+      position: relative; z-index: 2;
+    }
+    .phone-screen {
+      padding: 12px 16px;
+      height: calc(100% - 28px);
+      overflow: hidden;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .phone-header {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .phone-logo { font-size: 16px; font-weight: 900; color: var(--text); }
+    .phone-logo span { color: var(--accent); }
+    .phone-badge {
+      background: rgba(29,219,139,0.15); color: var(--success);
+      padding: 3px 8px; border-radius: 999px;
+      font-size: 9px; font-weight: 700; border: 1px solid rgba(29,219,139,0.3);
+    }
+    .phone-week {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--border); padding: 10px;
+    }
+    .phone-week-title { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    .phone-days { display: flex; gap: 4px; }
+    .phone-day {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .phone-day-label { font-size: 7px; color: var(--muted); font-weight: 600; }
+    .phone-day-dot {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 7px; font-weight: 800; color: #fff;
+    }
+    .phone-workout-card {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--border); padding: 12px;
+    }
+    .phone-workout-type {
+      font-size: 8px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; margin-bottom: 4px;
+    }
+    .phone-workout-title { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .phone-workout-desc { font-size: 9px; color: var(--text-secondary); line-height: 1.4; }
+    .phone-workout-meta { display: flex; gap: 8px; margin-top: 8px; }
+    .phone-meta-item {
+      background: var(--surface); border-radius: 6px; padding: 4px 6px;
+      font-size: 9px; font-weight: 700; color: var(--text-secondary);
+    }
+    .phone-stats-row { display: flex; gap: 6px; }
+    .phone-stat {
+      flex: 1; background: var(--card); border-radius: 10px;
+      border: 1px solid var(--border); padding: 8px;
+      text-align: center;
+    }
+    .phone-stat-val { font-size: 14px; font-weight: 900; color: var(--accent); }
+    .phone-stat-label { font-size: 7px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+    .phone-pred-card {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--border); padding: 10px;
+    }
+    .phone-pred-title { font-size: 8px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    .phone-pred-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .phone-pred-item {
+      background: var(--surface); border-radius: 8px;
+      border: 1px solid var(--border); padding: 6px;
+      text-align: center;
+    }
+    .phone-pred-dist { font-size: 8px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+    .phone-pred-time { font-size: 13px; font-weight: 900; color: var(--accent); }
+    .phone-pred-pace { font-size: 7px; color: var(--text-secondary); }
+
+    /* ── SECTION SHARED ── */
+    section { padding: 100px 48px; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 900; letter-spacing: -1px; color: var(--text);
+      margin-bottom: 16px; line-height: 1.15;
+    }
+    .section-sub {
+      font-size: 17px; color: var(--text-secondary); line-height: 1.7;
+      max-width: 560px; margin-bottom: 60px;
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      padding: 0 48px 0;
+      background: var(--bg);
+    }
+    .stats-bar-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; justify-content: center; gap: 0;
+      background: var(--card); border-radius: 20px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .stat-item {
+      flex: 1; padding: 32px 24px; text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-num { font-size: 36px; font-weight: 900; color: var(--accent); letter-spacing: -1px; }
+    .stat-label { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+
+    /* ── FEATURES ── */
+    .features { background: var(--bg); }
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 28px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: var(--accent-border); transform: translateY(-4px); }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 16px;
+    }
+    .feature-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+    .feature-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ── HOW IT WORKS ── */
+    .how { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .steps {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 40px; position: relative;
+    }
+    .steps::before {
+      content: '';
+      position: absolute; top: 32px; left: 10%; right: 10%;
+      height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+    .step { text-align: center; padding-top: 8px; }
+    .step-num {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--accent-glow); border: 2px solid var(--accent-border);
+      color: var(--accent); font-size: 22px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; position: relative; z-index: 1;
+    }
+    .step-title { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+    .step-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── WORKOUT TYPES ── */
+    .types { background: var(--bg); }
+    .type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .type-card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 20px 24px;
+      display: flex; align-items: flex-start; gap: 14px;
+    }
+    .type-stripe { width: 4px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
+    .type-content {}
+    .type-name { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .type-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* ── RACE PREDICTIONS ── */
+    .predictions { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .pred-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+    .pred-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .pred-card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 24px;
+      text-align: center;
+      transition: border-color .2s;
+    }
+    .pred-card:hover { border-color: var(--accent-border); }
+    .pred-dist { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .pred-time { font-size: 28px; font-weight: 900; color: var(--accent); letter-spacing: -1px; }
+    .pred-pace { font-size: 12px; color: var(--text-secondary); font-weight: 600; margin-top: 4px; }
+    .pred-note { font-size: 12px; color: var(--muted); margin-top: 16px; font-style: italic; }
+
+    /* ── STRAVA ── */
+    .strava-section { background: var(--bg); }
+    .strava-card {
+      background: linear-gradient(135deg, #1A1510, #1A1A24);
+      border-radius: 24px; border: 1px solid #3A2A1A;
+      padding: 48px; display: flex; align-items: center; gap: 48px;
+    }
+    .strava-logo {
+      font-size: 48px; width: 80px; height: 80px;
+      background: var(--strava); border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .strava-content { flex: 1; }
+    .strava-title { font-size: 26px; font-weight: 900; color: var(--text); margin-bottom: 10px; }
+    .strava-desc { font-size: 16px; color: var(--text-secondary); line-height: 1.65; }
+    .strava-feats { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+    .strava-feat { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-secondary); }
+    .strava-feat::before { content: '✓'; color: var(--success); font-weight: 800; font-size: 14px; }
+
+    /* ── CTA ── */
+    .cta-section {
+      background: radial-gradient(ellipse at 50% 0%, rgba(45,111,232,0.15) 0%, transparent 70%), var(--surface);
+      border-top: 1px solid var(--border);
+      text-align: center; padding: 120px 48px;
+    }
+    .cta-title { font-size: clamp(32px,5vw,56px); font-weight: 900; letter-spacing: -1.5px; margin-bottom: 20px; }
+    .cta-sub { font-size: 18px; color: var(--text-secondary); margin-bottom: 48px; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+    .cta-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-store {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 24px; text-decoration: none;
+      transition: border-color .2s;
+    }
+    .btn-store:hover { border-color: var(--accent-border); }
+    .btn-store-icon { font-size: 28px; }
+    .btn-store-text { text-align: left; }
+    .btn-store-sub { font-size: 10px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; display: block; }
+    .btn-store-name { font-size: 16px; font-weight: 800; color: var(--text); display: block; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg); border-top: 1px solid var(--border);
+      padding: 48px;
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-logo { font-size: 18px; font-weight: 800; color: var(--text); }
+    .footer-logo span { color: var(--accent); }
+    .footer-copy { font-size: 13px; color: var(--muted); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .2s; }
+    .footer-links a:hover { color: var(--text); }
+
+    /* ── MOBILE ── */
+    @media (max-width: 900px) {
+      nav { padding: 14px 24px; }
+      .nav-links { display: none; }
+      .hero { padding: 100px 24px 60px; }
+      .hero-inner { grid-template-columns: 1fr; text-align: center; gap: 48px; }
+      .hero-visual { order: -1; }
+      .hero-ctas { justify-content: center; }
+      .hero-social-proof { justify-content: center; }
+      section { padding: 64px 24px; }
+      .stats-bar { padding: 0 24px; }
+      .stats-bar-inner { flex-direction: column; }
+      .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat-item:last-child { border-bottom: none; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .steps::before { display: none; }
+      .type-grid { grid-template-columns: 1fr; }
+      .pred-layout { grid-template-columns: 1fr; gap: 40px; }
+      .strava-card { flex-direction: column; padding: 32px; }
+      .cta-section { padding: 80px 24px; }
+      .footer-inner { flex-direction: column; gap: 20px; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+    @media (max-width: 600px) {
+      .phone { width: 240px; height: 480px; }
+      .steps { grid-template-columns: 1fr; }
+      .pred-cards { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark">R</div>
+    <span class="nav-logo-text">Run<span>Lab</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Funcionalidades</a>
+    <a href="#how">Como funciona</a>
+    <a href="#predictions">Previsões</a>
+    <a href="#strava">Strava</a>
+  </div>
+  <a href="#cta" class="btn-nav">Descarregar</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="hero-content">
+      <div class="hero-badge">Novo · Planos com IA</div>
+      <h1 class="hero-title">
+        O teu treinador<br>
+        de corrida <span class="accent">pessoal</span>
+      </h1>
+      <p class="hero-sub">
+        Planos de treino gerados por IA, adaptados ao teu nível, objetivo e histórico real de corridas. Do sofá à maratona — com ciência, não com chalpões.
+      </p>
+      <div class="hero-ctas">
+        <a href="#cta" class="btn-primary">
+          <span>📱</span> Descarregar grátis
+        </a>
+        <a href="#how" class="btn-secondary">Como funciona →</a>
+      </div>
+      <div class="hero-social-proof">
+        <div class="proof-avatars">
+          <div class="proof-avatar" style="background:#2D6FE8">M</div>
+          <div class="proof-avatar" style="background:#1DDB8B">A</div>
+          <div class="proof-avatar" style="background:#FFB800">R</div>
+          <div class="proof-avatar" style="background:#6C63FF">J</div>
+        </div>
+        <span>Já usado por corredores em Portugal</span>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="phone-header">
+              <div class="phone-logo">Run<span>Lab</span></div>
+              <div class="phone-badge">● Ativo</div>
+            </div>
+
+            <div class="phone-week">
+              <div class="phone-week-title">Esta semana</div>
+              <div class="phone-days">
+                <div class="phone-day">
+                  <div class="phone-day-label">Seg</div>
+                  <div class="phone-day-dot" style="background:#1DDB8B">✓</div>
+                </div>
+                <div class="phone-day">
+                  <div class="phone-day-label">Ter</div>
+                  <div class="phone-day-dot" style="background:#2A2A38;border:1.5px solid #2A2A38">—</div>
+                </div>
+                <div class="phone-day">
+                  <div class="phone-day-label">Qua</div>
+                  <div class="phone-day-dot" style="background:#FFB800">✓</div>
+                </div>
+                <div class="phone-day">
+                  <div class="phone-day-label">Qui</div>
+                  <div class="phone-day-dot" style="background:#2A2A38;border:1.5px solid #2A2A38">—</div>
+                </div>
+                <div class="phone-day">
+                  <div class="phone-day-label">Sex</div>
+                  <div class="phone-day-dot" style="background:#1DDB8B;border:2px solid #2D6FE8"> </div>
+                </div>
+                <div class="phone-day">
+                  <div class="phone-day-label">Sáb</div>
+                  <div class="phone-day-dot" style="background:#6C63FF"> </div>
+                </div>
+                <div class="phone-day">
+                  <div class="phone-day-label">Dom</div>
+                  <div class="phone-day-dot" style="background:#2A2A38;border:1.5px solid #2A2A38">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="phone-workout-card">
+              <div class="phone-workout-type" style="color:#6C63FF">Corrida Longa</div>
+              <div class="phone-workout-title">Longa Progressiva 14km</div>
+              <div class="phone-workout-desc">Corre 14km a 6:30/km — ritmo de conversa. Bebe 150ml a cada 20 min.</div>
+              <div class="phone-workout-meta">
+                <div class="phone-meta-item">14 km</div>
+                <div class="phone-meta-item">91 min</div>
+                <div class="phone-meta-item">6:30/km</div>
+              </div>
+            </div>
+
+            <div class="phone-stats-row">
+              <div class="phone-stat">
+                <div class="phone-stat-val" style="color:#1DDB8B">68%</div>
+                <div class="phone-stat-label">Plano</div>
+              </div>
+              <div class="phone-stat">
+                <div class="phone-stat-val" style="color:#2D6FE8">142</div>
+                <div class="phone-stat-label">km feitos</div>
+              </div>
+              <div class="phone-stat">
+                <div class="phone-stat-val" style="color:#FFB800">23</div>
+                <div class="phone-stat-label">dias</div>
+              </div>
+            </div>
+
+            <div class="phone-pred-card">
+              <div class="phone-pred-title">Previsão de prova</div>
+              <div class="phone-pred-grid">
+                <div class="phone-pred-item">
+                  <div class="phone-pred-dist">5K</div>
+                  <div class="phone-pred-time">22:14</div>
+                  <div class="phone-pred-pace">4:27/km</div>
+                </div>
+                <div class="phone-pred-item">
+                  <div class="phone-pred-dist">10K</div>
+                  <div class="phone-pred-time">46:31</div>
+                  <div class="phone-pred-pace">4:39/km</div>
+                </div>
+                <div class="phone-pred-item">
+                  <div class="phone-pred-dist">21km</div>
+                  <div class="phone-pred-time">1h42</div>
+                  <div class="phone-pred-pace">4:51/km</div>
+                </div>
+                <div class="phone-pred-item">
+                  <div class="phone-pred-dist">42km</div>
+                  <div class="phone-pred-time">3h34</div>
+                  <div class="phone-pred-pace">5:05/km</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stats-bar-inner">
+    <div class="stat-item">
+      <div class="stat-num">IA</div>
+      <div class="stat-label">Planos gerados por inteligência artificial</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">4</div>
+      <div class="stat-label">Objetivos: 5K, 10K, Meia e Maratona</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">6+</div>
+      <div class="stat-label">Tipos de treino diferentes por semana</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">Strava</div>
+      <div class="stat-label">Integração nativa com os teus dados reais</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-inner">
+    <div class="section-label">Funcionalidades</div>
+    <h2 class="section-title">Tudo o que precisas para evoluir</h2>
+    <p class="section-sub">Do plano gerado por IA às previsões de prova baseadas nas tuas corridas reais — o RunLab acompanha cada passo.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(45,111,232,0.15)">🤖</div>
+        <div class="feature-title">Plano gerado por IA</div>
+        <div class="feature-desc">O Gemini analisa o teu perfil — nível, objetivo, dias disponíveis e historial — e cria um plano semanal progressivo e personalizado.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(29,219,139,0.15)">📅</div>
+        <div class="feature-title">Calendário de treino</div>
+        <div class="feature-desc">Visualiza cada semana, marca treinos como concluídos e acompanha a tua progressão dia a dia com um calendário intuitivo.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(255,184,0,0.15)">📊</div>
+        <div class="feature-title">Estatísticas detalhadas</div>
+        <div class="feature-desc">Km planeados vs. reais, consistência semanal, distribuição por tipo de treino e evolução ao longo do plano.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(108,99,255,0.15)">🏁</div>
+        <div class="feature-title">Previsão de prova</div>
+        <div class="feature-desc">Com base nos teus melhores esforços, o RunLab estima os teus tempos para 5K, 10K, meia maratona e maratona usando a fórmula de Riegel.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(252,76,2,0.15)">🔗</div>
+        <div class="feature-title">Integração com Strava</div>
+        <div class="feature-desc">Liga a tua conta Strava e o RunLab usa os teus dados reais de corrida para calibrar o plano e melhorar as previsões automaticamente.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(0,188,212,0.15)">👤</div>
+        <div class="feature-title">Perfil completo</div>
+        <div class="feature-desc">Define o teu objetivo, nível, dias de treino, perfil físico e o RunLab adapta cada aspeto do plano ao teu caso específico.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="section-inner">
+    <div class="section-label">Como funciona</div>
+    <h2 class="section-title">Do zero ao plano em minutos</h2>
+    <p class="section-sub">Quatro passos simples para teres um plano profissional no teu bolso.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Cria o teu perfil</div>
+        <div class="step-desc">Indica o teu nome, dados físicos opcionais, objetivo de prova e nível de experiência de corrida.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Escolhe os dias</div>
+        <div class="step-desc">Seleciona quantos dias por semana queres treinar, quais são e qual deles é dedicado à corrida longa.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">A IA gera o plano</div>
+        <div class="step-desc">O Gemini cria um plano progressivo com títulos, descrições e instruções detalhadas para cada treino em português.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-title">Treina e evolui</div>
+        <div class="step-desc">Segue o calendário, regista as corridas via Strava ou manualmente, e vê as tuas previsões melhorar a cada semana.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WORKOUT TYPES -->
+<section class="types" id="types">
+  <div class="section-inner">
+    <div class="section-label">Tipos de treino</div>
+    <h2 class="section-title">Variedade que faz a diferença</h2>
+    <p class="section-sub">Cada semana combina diferentes tipos de treino para maximizar a evolução e minimizar o risco de lesão.</p>
+
+    <div class="type-grid">
+      <div class="type-card">
+        <div class="type-stripe" style="background:#1DDB8B"></div>
+        <div class="type-content">
+          <div class="type-name">Corrida Fácil</div>
+          <div class="type-desc">Ritmo de conversa, recuperação ativa. Base aeróbia e adaptação muscular progressiva.</div>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="type-stripe" style="background:#FFB800"></div>
+        <div class="type-content">
+          <div class="type-name">Corrida de Ritmo</div>
+          <div class="type-desc">Aquecimento + limiar anaeróbio + retorno fácil. Melhora a velocidade sustentada.</div>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="type-stripe" style="background:#2D6FE8"></div>
+        <div class="type-content">
+          <div class="type-name">Intervalos</div>
+          <div class="type-desc">Repetições específicas (6×800m, 5×1000m) com recuperação a trote. Aumenta o VO2max.</div>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="type-stripe" style="background:#6C63FF"></div>
+        <div class="type-content">
+          <div class="type-name">Corrida Longa</div>
+          <div class="type-desc">O treino mais importante da semana. Ritmo confortável, foco em completar a distância e hidratar.</div>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="type-stripe" style="background:#00BCD4"></div>
+        <div class="type-content">
+          <div class="type-name">Força & Core</div>
+          <div class="type-desc">Circuito de 3 séries sem impacto: agachamentos, lunges, pontes glúteas e prancha. Previne lesões.</div>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="type-stripe" style="background:#2A2A38"></div>
+        <div class="type-content">
+          <div class="type-name">Descanso</div>
+          <div class="type-desc">Foam roller, mobilidade ou repouso total. A recuperação é onde a evolução acontece.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RACE PREDICTIONS -->
+<section class="predictions" id="predictions">
+  <div class="section-inner">
+    <div class="pred-layout">
+      <div>
+        <div class="section-label">Previsão de prova</div>
+        <h2 class="section-title">Sabe os teus tempos antes da prova</h2>
+        <p class="section-sub">O RunLab analisa os teus melhores esforços e usa a fórmula de Riegel para estimar os teus tempos de prova para todas as distâncias — atualizando automaticamente a cada corrida registada.</p>
+        <p class="pred-note">Baseado em corridas Strava e treinos concluídos manualmente · Atualiza em tempo real</p>
+      </div>
+      <div class="pred-cards">
+        <div class="pred-card">
+          <div class="pred-dist">5K</div>
+          <div class="pred-time">22:14</div>
+          <div class="pred-pace">4:27/km</div>
+        </div>
+        <div class="pred-card">
+          <div class="pred-dist">10K</div>
+          <div class="pred-time">46:31</div>
+          <div class="pred-pace">4:39/km</div>
+        </div>
+        <div class="pred-card">
+          <div class="pred-dist">Meia</div>
+          <div class="pred-time">1h42m</div>
+          <div class="pred-pace">4:51/km</div>
+        </div>
+        <div class="pred-card">
+          <div class="pred-dist">Maratona</div>
+          <div class="pred-time">3h34m</div>
+          <div class="pred-pace">5:05/km</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STRAVA -->
+<section class="strava-section" id="strava">
+  <div class="section-inner">
+    <div class="strava-card">
+      <div class="strava-logo">🏃</div>
+      <div class="strava-content">
+        <div class="strava-title">Integração nativa com o Strava</div>
+        <div class="strava-desc">Liga a tua conta Strava em segundos e o RunLab importa automaticamente o teu historial de corridas para personalizar ainda mais o plano e as previsões.</div>
+        <div class="strava-feats">
+          <div class="strava-feat">Importação automática de corridas e ritmos reais</div>
+          <div class="strava-feat">Plano calibrado com base no teu volume semanal Strava</div>
+          <div class="strava-feat">Previsões de prova baseadas no teu melhor esforço real</div>
+          <div class="strava-feat">Estatísticas combinadas: plano + dados Strava</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="cta">
+  <div class="section-inner">
+    <h2 class="cta-title">Começa a correr com um plano que funciona</h2>
+    <p class="cta-sub">Grátis. Sem cartão de crédito. Disponível para iOS e Android.</p>
+    <div class="cta-buttons">
+      <a href="#" class="btn-store">
+        <div class="btn-store-icon">🍎</div>
+        <div class="btn-store-text">
+          <span class="btn-store-sub">Disponível na</span>
+          <span class="btn-store-name">App Store</span>
+        </div>
+      </a>
+      <a href="#" class="btn-store">
+        <div class="btn-store-icon">🤖</div>
+        <div class="btn-store-text">
+          <span class="btn-store-sub">Disponível no</span>
+          <span class="btn-store-name">Google Play</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">Run<span>Lab</span></div>
+    <div class="footer-copy">© 2026 RunLab · Feito em Portugal</div>
+    <div class="footer-links">
+      <a href="#">Privacidade</a>
+      <a href="#">Termos</a>
+      <a href="#">Contacto</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Intersection Observer para fade-in das cards
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.feature-card, .step, .type-card, .pred-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(24px)';
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>
