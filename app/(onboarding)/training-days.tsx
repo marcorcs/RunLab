@@ -80,9 +80,9 @@ export default function TrainingDaysScreen() {
             <Text style={styles.backText}>← Voltar</Text>
           </TouchableOpacity>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: "75%" }]} />
+            <View style={[styles.progressFill, { width: "80%" }]} />
           </View>
-          <Text style={styles.progressText}>3 de 4</Text>
+          <Text style={styles.progressText}>4 de 5</Text>
         </View>
 
         {/* Header */}

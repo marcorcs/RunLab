@@ -80,6 +80,10 @@ interface Profile {
   longRunDay?: number;
   raceDate?: string;
   name?: string;
+  gender?: string;
+  birthYear?: number;
+  heightCm?: number;
+  weightKg?: number;
 }
 
 function buildSkeleton(profile: Profile): PlanSkeleton {
@@ -281,9 +285,17 @@ async function enrichWithAI(skeleton: PlanSkeleton, profile: Profile): Promise<o
     isRaceDay: s.isRaceDay,
   }));
 
+  const genderLabels: Record<string, string> = { male: "homem", female: "mulher", other: "atleta" };
+  const genderStr = profile.gender ? genderLabels[profile.gender] || "atleta" : null;
+  const ageStr = profile.birthYear ? `${new Date().getFullYear() - profile.birthYear} anos` : null;
+  const heightStr = profile.heightCm ? `${profile.heightCm}cm` : null;
+  const weightStr = profile.weightKg ? `${profile.weightKg}kg` : null;
+  const bodyParts = [genderStr, ageStr, heightStr, weightStr].filter(Boolean);
+  const bodyInfo = bodyParts.length > 0 ? `, ${bodyParts.join(", ")}` : "";
+
   const prompt = `És um treinador de corrida profissional. Cria títulos e descrições personalizados para cada treino.
 
-Atleta: ${profile.name || "Corredor"}, objetivo ${goalLabels[profile.goal || "10K"] || profile.goal}, nível ${levelLabels[profile.level || "intermediate"] || profile.level}, ${profile.daysPerWeek || 4} dias/semana.
+Atleta: ${profile.name || "Corredor"}${bodyInfo}, objetivo ${goalLabels[profile.goal || "10K"] || profile.goal}, nível ${levelLabels[profile.level || "intermediate"] || profile.level}, ${profile.daysPerWeek || 4} dias/semana.
 Plano: ${skeleton.weeks} semanas, de ${skeleton.startDate} a ${skeleton.endDate}.
 
 Retorna APENAS um array JSON (sem markdown, sem texto extra):
@@ -304,7 +316,7 @@ ${JSON.stringify(slotsForAI)}`;
 
   const apiKey = Deno.env.get("GEMINI_API_KEY")!;
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -315,20 +327,20 @@ ${JSON.stringify(slotsForAI)}`;
     }
   );
 
-  if (!res.ok) {
-    throw new Error(`Gemini API ${res.status}: ${await res.text()}`);
-  }
-
-  const aiData = await res.json();
-  const text: string = aiData.candidates[0].content.parts[0].text.trim();
-
   let descMap = new Map<string, { title: string; description: string }>();
-  try {
-    const clean = text.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "").trim();
-    const parsed = JSON.parse(clean) as Array<{ id: string; title: string; description: string }>;
-    descMap = new Map(parsed.map((p) => [p.id, { title: p.title, description: p.description }]));
-  } catch {
-    console.warn("Failed to parse AI response, using fallback titles");
+
+  if (!res.ok) {
+    console.warn(`Gemini API ${res.status} — using fallback titles`);
+  } else {
+    try {
+      const aiData = await res.json();
+      const text: string = aiData.candidates[0].content.parts[0].text.trim();
+      const clean = text.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "").trim();
+      const parsed = JSON.parse(clean) as Array<{ id: string; title: string; description: string }>;
+      descMap = new Map(parsed.map((p) => [p.id, { title: p.title, description: p.description }]));
+    } catch {
+      console.warn("Failed to parse AI response, using fallback titles");
+    }
   }
 
   const workouts = skeleton.slots.map((slot) => ({

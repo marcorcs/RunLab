@@ -11,6 +11,10 @@ interface Profile {
   longRunDay?: number;
   raceDate?: string;
   onboardingCompleted?: boolean;
+  gender?: string; // "male" | "female" | "other"
+  birthYear?: number;
+  heightCm?: number;
+  weightKg?: number;
 }
 
 interface ProfileStore {
@@ -50,17 +54,31 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
 
-      // Tenta guardar com as colunas novas (training_days, long_run_day)
+      // Try with all new columns
       let { error } = await supabase.from("profiles").upsert({
         ...base,
         training_days: profile.trainingDays ?? null,
         long_run_day: profile.longRunDay ?? null,
+        gender: profile.gender ?? null,
+        birth_year: profile.birthYear ?? null,
+        height_cm: profile.heightCm ?? null,
+        weight_kg: profile.weightKg ?? null,
       });
 
-      // Se as colunas ainda não existem na DB (migração não aplicada), guarda sem elas
-      if (error && (error.code === "42703" || error.message?.includes("training_days") || error.message?.includes("long_run_day"))) {
-        const result = await supabase.from("profiles").upsert(base);
-        error = result.error;
+      if (error?.code === "42703") {
+        // Body profile columns may not exist yet — try with training days only
+        const r2 = await supabase.from("profiles").upsert({
+          ...base,
+          training_days: profile.trainingDays ?? null,
+          long_run_day: profile.longRunDay ?? null,
+        });
+        error = r2.error;
+
+        if (error?.code === "42703") {
+          // Training day columns also missing — bare minimum
+          const r3 = await supabase.from("profiles").upsert(base);
+          error = r3.error;
+        }
       }
 
       if (error) throw error;
@@ -101,6 +119,10 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
           longRunDay: data.long_run_day ?? undefined,
           raceDate: data.race_date,
           onboardingCompleted: data.onboarding_completed,
+          gender: data.gender ?? undefined,
+          birthYear: data.birth_year ?? undefined,
+          heightCm: data.height_cm ?? undefined,
+          weightKg: data.weight_kg ?? undefined,
         },
       });
     } finally {

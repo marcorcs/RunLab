@@ -41,11 +41,11 @@ const EXTEND_OPTIONS = [
   { weeks: 8, label: "+8 semanas", desc: "Reinicia o ciclo de treino com um bloco completo" },
 ];
 
-type ModalType = null | "extend" | "cancel";
+type ModalType = null | "extend" | "cancel" | "bodyProfile";
 
 export default function ProfileTab() {
   const { user, signOut } = useAuthStore();
-  const { profile } = useProfileStore();
+  const { profile, setProfile, saveProfile } = useProfileStore();
   const { isConnected, isLoading: stravaLoading, athleteName, athleteAvatar, checkConnection, connect, disconnect } =
     useStravaStore();
   const { plan, loadPlan, extendPlan, cancelPlan } = usePlanStore();
@@ -53,7 +53,67 @@ export default function ProfileTab() {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [isExtending, setIsExtending] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isSavingBody, setIsSavingBody] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  const CURRENT_YEAR = new Date().getFullYear();
+  const BODY_GENDERS = [
+    { id: "male", label: "Masculino" },
+    { id: "female", label: "Feminino" },
+    { id: "other", label: "Prefiro não dizer" },
+  ];
+
+  const [editGender, setEditGender] = useState<string | null>(null);
+  const [editBirthYear, setEditBirthYear] = useState<number | null>(null);
+  const [editHeightCm, setEditHeightCm] = useState<number | null>(null);
+  const [editWeightKg, setEditWeightKg] = useState<number | null>(null);
+
+  function openBodyProfileModal() {
+    setEditGender(profile.gender ?? null);
+    setEditBirthYear(profile.birthYear ?? null);
+    setEditHeightCm(profile.heightCm ?? null);
+    setEditWeightKg(profile.weightKg ?? null);
+    setActiveModal("bodyProfile");
+  }
+
+  function stepEditYear(delta: number) {
+    setEditBirthYear((prev) => {
+      const base = prev ?? CURRENT_YEAR - 30;
+      return Math.min(CURRENT_YEAR - 10, Math.max(CURRENT_YEAR - 80, base + delta));
+    });
+  }
+
+  function stepEditHeight(delta: number) {
+    setEditHeightCm((prev) => {
+      const base = prev ?? 170;
+      return Math.min(250, Math.max(100, base + delta));
+    });
+  }
+
+  function stepEditWeight(delta: number) {
+    setEditWeightKg((prev) => {
+      const base = prev ?? 70;
+      return Math.min(250, Math.max(30, Math.round((base + delta) * 2) / 2));
+    });
+  }
+
+  async function handleBodyProfileSave() {
+    setIsSavingBody(true);
+    try {
+      setProfile({
+        gender: editGender ?? undefined,
+        birthYear: editBirthYear ?? undefined,
+        heightCm: editHeightCm ?? undefined,
+        weightKg: editWeightKg ?? undefined,
+      });
+      await saveProfile();
+      setActiveModal(null);
+    } catch {
+      Alert.alert("Erro", "Não foi possível guardar o perfil físico.");
+    } finally {
+      setIsSavingBody(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => { loadPlan(); }, [])
@@ -184,6 +244,42 @@ export default function ProfileTab() {
           </View>
         </View>
 
+        {/* Body profile */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Perfil Físico</Text>
+          <View style={styles.bodyCard}>
+            <View style={styles.bodyGrid}>
+              <View style={styles.bodyItem}>
+                <Text style={styles.bodyValue}>
+                  {profile.gender === "male" ? "Masc." : profile.gender === "female" ? "Fem." : profile.gender === "other" ? "N/D" : "—"}
+                </Text>
+                <Text style={styles.bodyLabel}>Género</Text>
+              </View>
+              <View style={styles.bodyItem}>
+                <Text style={styles.bodyValue}>
+                  {profile.birthYear ? `${CURRENT_YEAR - profile.birthYear} anos` : "—"}
+                </Text>
+                <Text style={styles.bodyLabel}>Idade</Text>
+              </View>
+              <View style={styles.bodyItem}>
+                <Text style={styles.bodyValue}>
+                  {profile.heightCm ? `${profile.heightCm} cm` : "—"}
+                </Text>
+                <Text style={styles.bodyLabel}>Altura</Text>
+              </View>
+              <View style={styles.bodyItem}>
+                <Text style={styles.bodyValue}>
+                  {profile.weightKg ? `${profile.weightKg} kg` : "—"}
+                </Text>
+                <Text style={styles.bodyLabel}>Peso</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.bodyEditBtn} onPress={openBodyProfileModal} activeOpacity={0.8}>
+              <Text style={styles.bodyEditText}>Editar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Plan management */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Plano Ativo</Text>
@@ -211,7 +307,6 @@ export default function ProfileTab() {
             </View>
           ) : (
             <View style={styles.noPlanCard}>
-              <Text style={styles.noPlanEmoji}>🏃</Text>
               <Text style={styles.noPlanTitle}>Sem plano ativo</Text>
               <Text style={styles.noPlanSub}>
                 Gera um novo plano com base no teu perfil atual — objetivo {GOAL_LABELS[profile.goal ?? ""] ?? "—"}, nível {LEVEL_LABELS[profile.level ?? ""] ?? "—"}.
@@ -292,6 +387,82 @@ export default function ProfileTab() {
         </View>
       </ScrollView>
 
+      {/* Body profile modal */}
+      <Modal visible={activeModal === "bodyProfile"} transparent animationType="slide" onRequestClose={() => !isSavingBody && setActiveModal(null)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => !isSavingBody && setActiveModal(null)}>
+          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Perfil Físico</Text>
+            <Text style={styles.sheetSub}>Estes dados ajudam a personalizar melhor os teus treinos</Text>
+
+            <Text style={styles.bodySheetFieldLabel}>Género</Text>
+            <View style={styles.bodySheetGenderRow}>
+              {BODY_GENDERS.map((g) => (
+                <TouchableOpacity
+                  key={g.id}
+                  style={[styles.bodySheetGenderBtn, editGender === g.id && styles.bodySheetGenderBtnActive]}
+                  onPress={() => setEditGender((prev) => (prev === g.id ? null : g.id))}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.bodySheetGenderText, editGender === g.id && styles.bodySheetGenderTextActive]}>
+                    {g.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.bodySheetFieldLabel}>Ano de nascimento</Text>
+            <View style={styles.bodySheetStepper}>
+              <TouchableOpacity style={styles.bodySheetStepBtn} onPress={() => stepEditYear(-1)} activeOpacity={0.7}>
+                <Text style={styles.bodySheetStepBtnText}>−</Text>
+              </TouchableOpacity>
+              <View style={styles.bodySheetStepDisplay}>
+                <Text style={styles.bodySheetStepNum}>{editBirthYear ?? "—"}</Text>
+                {editBirthYear && <Text style={styles.bodySheetStepUnit}>{CURRENT_YEAR - editBirthYear} anos</Text>}
+              </View>
+              <TouchableOpacity style={styles.bodySheetStepBtn} onPress={() => stepEditYear(1)} activeOpacity={0.7}>
+                <Text style={styles.bodySheetStepBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.bodySheetFieldLabel}>Altura (cm)</Text>
+            <View style={styles.bodySheetStepper}>
+              <TouchableOpacity style={styles.bodySheetStepBtn} onPress={() => stepEditHeight(-1)} activeOpacity={0.7}>
+                <Text style={styles.bodySheetStepBtnText}>−</Text>
+              </TouchableOpacity>
+              <View style={styles.bodySheetStepDisplay}>
+                <Text style={styles.bodySheetStepNum}>{editHeightCm ?? "—"}</Text>
+                <Text style={styles.bodySheetStepUnit}>cm</Text>
+              </View>
+              <TouchableOpacity style={styles.bodySheetStepBtn} onPress={() => stepEditHeight(1)} activeOpacity={0.7}>
+                <Text style={styles.bodySheetStepBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.bodySheetFieldLabel}>Peso (kg)</Text>
+            <View style={styles.bodySheetStepper}>
+              <TouchableOpacity style={styles.bodySheetStepBtn} onPress={() => stepEditWeight(-0.5)} activeOpacity={0.7}>
+                <Text style={styles.bodySheetStepBtnText}>−</Text>
+              </TouchableOpacity>
+              <View style={styles.bodySheetStepDisplay}>
+                <Text style={styles.bodySheetStepNum}>{editWeightKg != null ? editWeightKg.toFixed(1) : "—"}</Text>
+                <Text style={styles.bodySheetStepUnit}>kg</Text>
+              </View>
+              <TouchableOpacity style={styles.bodySheetStepBtn} onPress={() => stepEditWeight(0.5)} activeOpacity={0.7}>
+                <Text style={styles.bodySheetStepBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.bodySheetSaveBtn} onPress={handleBodyProfileSave} disabled={isSavingBody} activeOpacity={0.85}>
+              {isSavingBody ? <ActivityIndicator color="#fff" /> : <Text style={styles.bodySheetSaveBtnText}>Guardar</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setActiveModal(null)} disabled={isSavingBody}>
+              <Text style={styles.sheetCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Extend modal */}
       <Modal visible={activeModal === "extend"} transparent animationType="slide" onRequestClose={() => setActiveModal(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => !isExtending && setActiveModal(null)}>
@@ -346,7 +517,7 @@ export default function ProfileTab() {
 
             <View style={styles.cancelWarning}>
               <Text style={styles.cancelWarningText}>
-                ⚠️ Os dados de treino ficam guardados mas o plano deixa de estar ativo. Podes criar um novo plano a qualquer momento.
+                Os dados de treino ficam guardados mas o plano deixa de estar ativo. Podes criar um novo plano a qualquer momento.
               </Text>
             </View>
 
@@ -430,6 +601,31 @@ const styles = StyleSheet.create({
 
   signOutBtn: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.lg, alignItems: "center" },
   signOutText: { color: colors.error, fontSize: typography.sizes.md, fontWeight: "700" },
+
+  // Body profile card
+  bodyCard: { backgroundColor: colors.card, borderRadius: radii.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  bodyGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  bodyItem: { width: "47%", gap: 2 },
+  bodyValue: { fontSize: typography.sizes.md, fontWeight: "800", color: colors.text },
+  bodyLabel: { fontSize: typography.sizes.sm, color: colors.muted, fontWeight: "600" },
+  bodyEditBtn: { alignSelf: "flex-start", paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radii.md, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.accentGlow },
+  bodyEditText: { color: colors.accent, fontSize: typography.sizes.sm, fontWeight: "700" },
+
+  // Body profile sheet
+  bodySheetGenderRow: { gap: spacing.sm },
+  bodySheetGenderBtn: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.lg, alignItems: "center" },
+  bodySheetGenderBtnActive: { backgroundColor: colors.accentGlow, borderColor: colors.accent },
+  bodySheetGenderText: { fontSize: typography.sizes.md, fontWeight: "700", color: colors.text },
+  bodySheetGenderTextActive: { color: colors.accent },
+  bodySheetFieldLabel: { fontSize: typography.sizes.xs, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: spacing.sm, marginTop: spacing.md },
+  bodySheetStepper: { flexDirection: "row", alignItems: "center", gap: spacing.xl, justifyContent: "center" },
+  bodySheetStepBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  bodySheetStepBtnText: { fontSize: 24, color: colors.accent, fontWeight: "300", lineHeight: 28 },
+  bodySheetStepDisplay: { alignItems: "center", minWidth: 90 },
+  bodySheetStepNum: { fontSize: 36, fontWeight: "800", color: colors.text, lineHeight: 40 },
+  bodySheetStepUnit: { fontSize: typography.sizes.sm, color: colors.muted, fontWeight: "600" },
+  bodySheetSaveBtn: { backgroundColor: colors.accent, borderRadius: radii.lg, paddingVertical: 16, alignItems: "center" },
+  bodySheetSaveBtnText: { color: "#fff", fontSize: typography.sizes.md, fontWeight: "800" },
 
   // Bottom sheet shared
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },

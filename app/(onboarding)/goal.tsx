@@ -48,9 +48,9 @@ export default function OnboardingGoalScreen() {
           {/* Progress */}
           <View style={styles.progressWrap}>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: "33%" }]} />
+              <View style={[styles.progressFill, { width: "40%" }]} />
             </View>
-            <Text style={styles.progressText}>1 de 3</Text>
+            <Text style={styles.progressText}>2 de 5</Text>
           </View>
 
           {/* Header */}

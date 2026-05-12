@@ -65,14 +65,13 @@ export default function OnboardingLevelScreen() {
             <Text style={styles.backText}>← Voltar</Text>
           </TouchableOpacity>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: "50%" }]} />
+            <View style={[styles.progressFill, { width: "60%" }]} />
           </View>
-          <Text style={styles.progressText}>2 de 4</Text>
+          <Text style={styles.progressText}>3 de 5</Text>
         </View>
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.emoji}>💪</Text>
           <Text style={styles.title}>Qual é o teu nível?</Text>
           <Text style={styles.subtitle}>
             Sê honesto — o plano será muito melhor assim

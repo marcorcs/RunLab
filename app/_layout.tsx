@@ -31,7 +31,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       if (profile.onboardingCompleted) {
         router.replace("/(tabs)");
       } else {
-        router.replace("/(onboarding)/goal");
+        router.replace("/(onboarding)/body-profile" as any);
       }
     }
   }, [session, isInitialized, segments, profile.onboardingCompleted, isProfileLoaded]);

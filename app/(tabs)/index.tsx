@@ -153,7 +153,6 @@ export default function CalendarTab() {
         {/* Empty state */}
         {!plan && !isLoading && (
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyEmoji}>🏃</Text>
             <Text style={styles.emptyTitle}>Sem plano ativo</Text>
             <Text style={styles.emptySub}>
               Olá {profile.name ?? ""}! Gera o teu plano de treino personalizado com IA.
@@ -166,7 +165,7 @@ export default function CalendarTab() {
             >
               {isGenerating
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.generateBtnText}>Gerar plano 🚀</Text>
+                : <Text style={styles.generateBtnText}>Gerar plano</Text>
               }
             </TouchableOpacity>
           </View>
