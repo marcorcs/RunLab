@@ -106,10 +106,16 @@ export default function OnboardingRaceDateScreen() {
       const raceDate = computeRaceDate();
       setProfile({ raceDate: raceDate ?? undefined });
       await saveProfile();
+    } catch {
+      setIsSaving(false);
+      Alert.alert("Erro", "Não foi possível guardar o teu perfil. Verifica a tua ligação e tenta novamente.");
+      return;
+    }
+    try {
       await generatePlan();
       router.replace("/(tabs)");
-    } catch {
-      Alert.alert("Erro", "Não foi possível guardar o perfil. Tenta novamente.");
+    } catch (err: any) {
+      Alert.alert("Erro ao gerar plano", err?.message ?? "Não foi possível gerar o plano. Verifica a tua ligação e tenta novamente.");
     } finally {
       setIsSaving(false);
     }

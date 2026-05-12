@@ -179,7 +179,8 @@ export default function CalendarTab() {
               style={styles.loadingLogo}
               resizeMode="contain"
             />
-            <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: 20 }} />
+            <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: 24 }} />
+            <Text style={styles.loadingText}>A carregar o plano…</Text>
           </View>
         )}
 
@@ -401,8 +402,9 @@ const styles = StyleSheet.create({
   generateBtn: { backgroundColor: colors.accent, borderRadius: radii.lg, paddingVertical: 14, paddingHorizontal: spacing.xxxl, alignItems: "center", marginTop: spacing.md },
   generateBtnDisabled: { opacity: 0.5 },
   generateBtnText: { color: "#fff", fontSize: typography.sizes.lg, fontWeight: "800", letterSpacing: 0.3 },
-  loadingWrap: { alignItems: "center", justifyContent: "center", padding: 60 },
-  loadingLogo: { width: 96, height: 96 },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
+  loadingLogo: { width: 160, height: 160 },
+  loadingText: { marginTop: 12, fontSize: typography.sizes.sm, color: colors.muted, fontWeight: "600" },
 
   // Today card
   todaySection: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },

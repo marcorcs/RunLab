@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, radii, typography } from "@/theme";
@@ -180,7 +180,12 @@ export default function StatsTab() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} size="large" />
+          <Image
+            source={require("../../assets/logo-mark.png")}
+            style={styles.loadingLogo}
+            resizeMode="contain"
+          />
+          <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: 24 }} />
         </View>
       </SafeAreaView>
     );
@@ -370,6 +375,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md },
+  loadingLogo: { width: 160, height: 160 },
   emptyEmoji: { fontSize: 48 },
   emptyText: { color: colors.textSecondary, fontSize: typography.sizes.md, textAlign: "center", lineHeight: 22 },
 

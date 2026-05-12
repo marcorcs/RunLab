@@ -38,19 +38,33 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const { profile } = get();
-      const { error } = await supabase.from("profiles").upsert({
+
+      const base = {
         id: user.id,
         name: profile.name,
         goal: profile.goal,
         level: profile.level,
         days_per_week: profile.daysPerWeek,
-        training_days: profile.trainingDays ?? null,
-        long_run_day: profile.longRunDay ?? null,
         race_date: profile.raceDate,
         onboarding_completed: true,
         updated_at: new Date().toISOString(),
+      };
+
+      // Tenta guardar com as colunas novas (training_days, long_run_day)
+      let { error } = await supabase.from("profiles").upsert({
+        ...base,
+        training_days: profile.trainingDays ?? null,
+        long_run_day: profile.longRunDay ?? null,
       });
+
+      // Se as colunas ainda não existem na DB (migração não aplicada), guarda sem elas
+      if (error && (error.code === "42703" || error.message?.includes("training_days") || error.message?.includes("long_run_day"))) {
+        const result = await supabase.from("profiles").upsert(base);
+        error = result.error;
+      }
+
       if (error) throw error;
+
       set((state) => ({
         profile: { ...state.profile, onboardingCompleted: true },
       }));

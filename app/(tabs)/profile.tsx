@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 import * as Notifications from "expo-notifications";
 import { scheduleWorkoutNotifications, cancelAllNotifications } from "@/services/notifications";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useStravaStore } from "@/stores/stravaStore";
@@ -48,12 +48,16 @@ export default function ProfileTab() {
   const { profile } = useProfileStore();
   const { isConnected, isLoading: stravaLoading, athleteName, athleteAvatar, checkConnection, connect, disconnect } =
     useStravaStore();
-  const { plan, extendPlan, cancelPlan } = usePlanStore();
+  const { plan, loadPlan, extendPlan, cancelPlan } = usePlanStore();
 
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [isExtending, setIsExtending] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => { loadPlan(); }, [])
+  );
 
   useEffect(() => {
     checkConnection();
